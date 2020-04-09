@@ -1,0 +1,207 @@
+adduser kalman
+usermod -aG sudo kalman
+apt-get install openssh-server
+apt-get update
+apt-get install openssh-server
+service apache2 status
+service apach2 status
+service apache2 restart
+apt-get install webmin
+apt-get install apache2
+apt-get install php
+apt-get install php5
+apt-get install vsftpd
+passwd
+systemctl status ssh
+apt install openssh-server
+sudo ufw allow ssh
+exit
+adduser aodpf
+sudo apt update
+apt install python3-pip python3-dev build-essential libssl-dev libffi-dev python3-setuptools
+sudo apt install python3-venv
+python -v
+python
+python3
+sudo service ssh start
+mc
+apt-get install mc
+cd /etc/ssh
+mc
+service ssh restart
+mc
+service ssh restart
+sudo apt-get install python3.4-venv
+cd /home/aodpf
+mkdir public_html
+cd public_html
+python3 -m venv aodpfweb
+source aodpfweb/bin/activate
+git clone https://github.com/JanisPeksa/Autonomous-Open-Data-Prediction-Framework.git
+sudo apt install git
+git clone https://github.com/JanisPeksa/Autonomous-Open-Data-Prediction-Framework.git
+nano wsgi.py
+uwsgi --socket 0.0.0.0:1080 --protocol=http -w wsgi:app
+apt-get install python3-dev
+pip3 install uwsgi
+uwsgi --socket 0.0.0.0:1080 --protocol=http -w wsgi:app
+netstat 0tlpn
+netstat -tlpn
+sudo apt remove apache2.*
+netstat -tlpn
+sudo apt remove apache2.*
+netstat -tlpn
+sudo service apache2 stop
+netstat -tlpn
+sudo service apache2 stopapt-get purge apache2 apache2-utils apache2.2-bin apache2-common
+apt-get purge apache2 apache2-utils apache2.2-bin apache2-common
+sudo apt-get autoremove
+netstat -tlpn
+apt-get purge apache2
+netstat -tlpn
+sudo apt-get --purge remove apache2
+sudo apt-get remove apache2-common
+uwsgi --socket 0.0.0.0:80 --protocol=http -w wsgi:app
+reboot
+source aodpfweb/bin/activate
+uwsgi --socket 0.0.0.0:80 --protocol=http -w wsgi:app
+uwsgi --socket 0.0.0.0:80 --protocol=http -w wsgi:app --logger file:/home/aodpf
+uwsgi --socket 0.0.0.0:80  --logger file:/home/aodpf --protocol=http -w wsgi:app
+uwsgi --socket 0.0.0.0:80 --logger file:/home/aodpf/uwsgi.log --protocol=http -w wsgi:app
+uwsgi --socket 0.0.0.0:80 --logto file:/home/aodpf/uwsgi.log --protocol=http -w wsgi:app
+usermod -g www-data foobar
+usermod -g www-data aodpf
+deactive
+deactivate
+sudo nano /etc/systemd/system/aodpfweb.service
+sudo systemctl start aodpfweb
+systemctl start aodpfweb
+sudo dpkg -l | grep systemd
+service start aodpfweb
+service aodpfweb start
+service aodpfweb.service start
+sudo apt-get install systemd
+sudo systemctl start aodpfweb
+systemctl status aodpfweb.service
+sudo nano /etc/systemd/system/aodpfweb.service
+systemctl status aodpfweb.service
+sudo nano /etc/systemd/system/aodpfweb.service
+sudo systemd-analyze verify aodpfweb.service
+sudo nano /etc/systemd/system/aodpfweb.service
+sudo systemctl start aodpfweb
+sudo systemctl enable aodpfweb
+sudo systemctl status aodpfweb
+sudo systemctl restart aodpfweb
+gorups aodpf
+groups aodpf
+usermod -a -G aodpf aodpf
+groups aodpf
+sudo chown -R www-data:www-data /home/aodpf
+user  www-data;
+user www-data
+groups www-data
+groups aodpf
+chown www-data:www-data /home/aodpf
+sudo systemctl restart aodpfweb
+sudo systemctl status aodpfweb
+chown -x www-data:www-data /home/aodpf
+chown -R www-data:www-data /home/aodpf
+sudo nano /etc/systemd/system/aodpfweb.service
+sudo systemctl restart aodpfweb
+systemctl --system daemon-reload
+sudo systemctl status aodpfweb
+sudo systemctl restart aodpfweb
+sudo nano /etc/systemd/system/aodpfweb.service
+sudo systemctl restart aodpfweb
+systemctl --system daemon-reload
+sudo systemctl restart aodpfweb
+sudo systemctl status aodpfweb
+journalctl -n 200
+sudo systemctl status aodpfweb
+sudo nano /etc/systemd/system/aodpfweb.service
+sudo systemctl restart aodpfweb
+systemctl --system daemon-reload
+sudo systemctl status aodpfweb
+sudo systemctl restart aodpfweb
+source aodpfweb/bin/activate
+pip freeze > requirements.txt
+pip3 install flask
+sudo systemctl restart aodpfweb
+sudo systemctl status aodpfweb
+pip install Flask-API
+sudo systemctl restart aodpfweb
+sudo systemctl status aodpfweb
+pip3 install mysql-connector
+sudo systemctl restart aodpfweb
+sudo systemctl status aodpfweb
+sudo apt install nginx
+server {
+sudo nano /etc/nginx/sites-available/aodpfweb
+sudo ln -s /etc/nginx/sites-available/myproject /etc/nginx/sites-enabled
+sudo nginx -t
+sudo systemctl restart nginx
+systemctl status nginx.service
+sudo apt install nginx
+systemctl status nginx
+sudo nano /lib/systemd/system/nginx.service
+systemctl status nginx
+sudo systemctl restart nginx
+sudo nano /lib/systemd/system/nginx.service
+sudo systemctl restart nginx
+sudo apt update
+sudo apt install nginx
+sudo systemctl restart nginx
+sudo apt-get install nginx nginx-full nginx-common
+sudo systemctl restart nginx
+systemctl status nginx
+sudo systemctl restart nginx
+apt-get remove nginx nginx-common nginx-doc nginx-core nginx-full nginx-extras nginx-light
+deactivate
+sudo apt update
+sudo apt install nginx
+sudo systemctl restart nginx
+sudo apt update
+sudo systemctl restart nginx
+sudo apt update
+quota -q
+apt-get install quota
+quota -q
+quota -v
+quota -vs
+df
+sudo systemctl restart nginx
+journalctl -n 200
+sudo systemctl restart nginx
+netstat -tlpn
+nginx reload
+nginx -s reload
+sudo nano /etc/nginx/sites-enabled/aodpfweb
+nginx -s reload
+netstat -tlpn
+service nginx reload
+sudo systemctl status aodpfweb
+history -a
+source aodpfweb/bin/activate
+pip freeze > requirements.txt
+cd /var/www/
+mc
+service vsftpd status
+cd /home/
+ls
+ls -
+ls -l
+mc
+cd /home/
+ls -l
+mc
+service aodpfweb status
+mc
+sudo systemctl start aodpfweb
+sudo systemctl status aodpfweb
+mc
+sudo systemctl status aodpfweb
+sudo systemctl enable aodpfweb
+sudo systemctl status aodpfweb
+mc
+sudo systemctl restart aodpfweb
+sudo systemctl status aodpfweb
