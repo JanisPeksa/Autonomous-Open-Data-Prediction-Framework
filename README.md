@@ -4,9 +4,9 @@
 <p>&nbsp;</p>
 <p>&nbsp;</p>
 <p>&nbsp;</p>
-<p>Riga Technical University Faculty of Computer Science and Information Technology</p>
-<p>Information Technology Institute Department of Management Information Technology</p>
-<p><strong>Jānis Pek&scaron;a </strong>Research Assistant <a href="http://iti.rtu.lv/vitk/lv/katedra/darbinieki/janis-peksa">http://iti.rtu.lv/vitk/lv/katedra/darbinieki/janis-peksa</a></p>
+<p>Riga Technical University<br/>Faculty of Computer Science and Information Technology</p>
+<p>Information Technology Institute<br/>Department of Management Information Technology</p>
+<p><strong>Jānis Pek&scaron;a </strong>Research Assistant <br/><a href="http://iti.rtu.lv/vitk/lv/katedra/darbinieki/janis-peksa">http://iti.rtu.lv/vitk/lv/katedra/darbinieki/janis-peksa</a></p>
 <p>&nbsp;</p>
 <p><strong>INDEX</strong></p>
 <p>&nbsp;</p>
