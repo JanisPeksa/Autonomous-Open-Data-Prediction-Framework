@@ -1,3 +1,8 @@
+import datetime
+import pandas as pd
+import numpy as np
+
+
 class DataHandler:
 
     @staticmethod
@@ -441,6 +446,18 @@ class DataHandler:
         return lists_of_measurements
 
     @staticmethod
+    def replace_in_list_none_with_dash(list_of_measurements: list) -> list:
+        i = 0
+
+        for _ in list_of_measurements:
+            if list_of_measurements[i] is None:
+                list_of_measurements[i] = '-'
+            i += 1
+        i = 0
+
+        return list_of_measurements
+
+    @staticmethod
     def fill_missing_data_in_lists(lists_of_measurements: list) -> list:
         i = 0
         for list_of_measurement in lists_of_measurements:
@@ -506,3 +523,55 @@ class DataHandler:
             accuracies.append(DataHandler.get_accuracy(measurements, estimates))
 
         return accuracies
+
+    @staticmethod
+    def get_datetime_format(date_time: str):
+        date_time = datetime.datetime.strptime(date_time, format('%Y-%m-%d %H:%M:%S'))
+        return date_time
+
+    @staticmethod
+    def get_datetime_from_dataframe(data_df, date_from_request):
+        while data_df.loc[data_df['Datetime'] == date_from_request].empty:
+            date_from_request += datetime.timedelta(minutes=1)
+
+        return date_from_request
+
+    @staticmethod
+    def get_datetime_and_measurements_dataframe(lists_of_datetime, lists_of_measurements, date_from, date_till):
+        data_df = pd.DataFrame()
+        data_df['Datetime'] = lists_of_datetime
+        data_df['Measurements'] = lists_of_measurements
+
+        date_from = DataHandler.get_datetime_from_dataframe(data_df, date_from)
+        date_till = DataHandler.get_datetime_from_dataframe(data_df, date_till)
+
+        data_df.set_index('Datetime', inplace=True)
+
+        data_df = data_df.loc[date_from:date_till]
+
+        return data_df
+
+    @staticmethod
+    def get_real_data_for_comparing_with_forecast(lists_of_datetime, lists_of_measurements,
+                                                  date_from_for_actual_data, steps):
+        actual_data_df = pd.DataFrame()
+        actual_data_df['Datetime'] = lists_of_datetime
+        actual_data_df['Measurements'] = lists_of_measurements
+
+        date_from_for_real_data = DataHandler.get_datetime_from_dataframe(actual_data_df, date_from_for_actual_data)
+
+        actual_data_df.set_index('Datetime', inplace=True)
+
+        actual_data_df = actual_data_df.loc[date_from_for_real_data:][:steps]
+
+        return actual_data_df
+
+    @staticmethod
+    def duplicate_dataframe_using_real_datafrme(actual_data_df, forecast_list):
+        forecast_df = pd.DataFrame()
+        forecast_df['Datetime'] = actual_data_df.index
+        forecast_df['Measurements'] = forecast_list
+
+        forecast_df.set_index('Datetime', inplace=True)
+
+        return forecast_df

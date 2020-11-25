@@ -4,25 +4,25 @@ import pandas as pd
 
 from Program.DataHandler import DataHandler
 from Program.KalmanFilter import KalmanFilter
+from Program.KF import KF_1D, KF_2D
 from Program.MySQLClient import MySQLClient
-from Program.Arima_Main import Arima_Main
+from Program.Forecasting_model import Forecasting_model
 
 app = FlaskAPI(__name__)
 
 
 @app.route('/get/', methods=['GET'])
 def get_basic():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxx', 'xxx', 'xxx')
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
     for x in request.args.keys():
         if x == 'value' and request.args['value'] != 'Station':
             return DataHandler.get_json_of_chosen_values(
-                //DataHandler.get_lists_of_chosen_values(db_client.get_all_info_from_main_database(),
                 DataHandler.get_lists_of_chosen_values_with_station_names(sql_client.get_all_info_from_database(),
-                                                       request.args['value']))
+                                                                          request.args['value']))
         elif x == 'list' and request.args['list'] == 'all':
             return DataHandler.get_json_of_existing_values()
-        elif (x == 'value' and request.args['value'] == 'Station') or (
-                x == 'list' and request.args['list'] == 'Station'):
+        elif (x == 'value' and request.args['value'] == 'Station') or \
+                (x == 'list' and request.args['list'] == 'Station'):
             return DataHandler.get_json_of_station_names()
         elif x == 'measment':
             pass
@@ -30,7 +30,7 @@ def get_basic():
 
 @app.route('/get/accuracies', methods=['GET'])
 def get_accuracies():
-    sql_client = MySQLClient('XX.XX.XX.XX', 'xxx', 'xxx', 'xxx')
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
     value = request.args['value']
     station_codes = request.args['stations'].split(',')
 
@@ -61,7 +61,7 @@ def get_accuracies():
 
 @app.route('/get/estimates', methods=['GET'])
 def get_estimates():
-    sql_client = MySQLClient('XX.XX.XX.XX', 'xxx', 'xxx', 'xxx')
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
     value = request.args['value']
     station_codes = request.args['stations'].split(',')
 
@@ -102,10 +102,8 @@ def get_estimates():
 # overload for taking all estimates
 @app.route('/get/estimates/all', methods=['GET'])
 def get_all_estimations():
-    sql_client = MySQLClient('XX.XX.XX.XX', 'xxx', 'xxx', 'xxx')
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
     value = request.args['value']
-
-    print(value)
 
     records = sql_client.get_all_info_by_stations()
     index = DataHandler.get_index_of_value(value)
@@ -143,13 +141,85 @@ def get_all_estimations():
     return json
 
 
+@app.route('/use/1d_kalman_filter', methods=['GET'])
+def get_filtered_values_using_1d_kalman_filter():
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
+    value = request.args['value']
+    station_code = request.args['station']
+
+    records = sql_client.get_info_by_station(station_code)
+
+    index = DataHandler.get_index_of_value(value)
+
+    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
+    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+
+    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
+    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+
+    filtered_values = KF_1D(list_of_measurements).get_filtered_values()
+
+    results_dict = dict()
+    json = dict()
+
+    results_dict['Filtered values using 1D Kalman Filter: '] = filtered_values
+
+    json[station_code] = results_dict
+
+    return json
+
+
+@app.route('/use/2d_kalman_filter', methods=['GET'])
+def get_filtered_values_using_2d_kalman_filter():
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
+    value = request.args['value']
+    station_code = request.args['station']
+    try:
+        position = float(request.args['position'])
+    except KeyError:
+        position = 0
+    try:
+        velocity = float(request.args['velocity'])
+    except KeyError:
+        velocity = 0
+    try:
+        time_delta = float(request.args['time_delta'])
+    except KeyError:
+        time_delta = 0.1
+
+    records = sql_client.get_info_by_station(station_code)
+
+    index = DataHandler.get_index_of_value(value)
+
+    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
+    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+
+    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
+    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+
+    filtered_values = KF_2D(list_of_measurements, position=position, velocity=velocity,
+                            time_delta=time_delta).get_filtered_values()
+
+    results_dict = dict()
+    json = dict()
+
+    results_dict['Filtered values using 2D Kalman Filter: '] = filtered_values
+
+    json[station_code] = results_dict
+
+    return json
+
+
 @app.route('/get/forecast/arima', methods=['GET'])
 def get_forecast_arima():
-    sql_client = MySQLClient('XX.XX.XX.XX', 'xxx', 'xxx', 'xxx')
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
     value = request.args['value']
     station_code = request.args['station']
     steps = int(request.args['steps'])
-    optimize = request.args['optimize'] in ('true', 'True')
+    try:
+        optimize = request.args['optimize'] in ('true', 'True')
+    except KeyError:
+        optimize = True
 
     records = sql_client.get_info_by_station(station_code)
 
@@ -163,34 +233,41 @@ def get_forecast_arima():
 
     series_of_measurements = pd.Series(list_of_measurements)
 
-    data_points_for_forecast, arima_model_order, steps, forecast = Arima_Main(series_of_measurements,
-                                                                              steps, optimize).get_arima_forecast()
+    arima_data_points, arima_model_order, forecast_arima = Forecasting_model("ARIMA", series_of_measurements, steps,
+                                                                             optimize).get_forecast()
 
     results_dict = dict()
     json = dict()
 
-    p, d, q = arima_model_order
+    if forecast_arima is not None:
+        p, d, q = arima_model_order
 
-    arima_model_order = {'p: ': p,
-                         'd: ': d,
-                         'q: ': q}
+        arima_model_order = {'p: ': p,
+                             'd: ': d,
+                             'q: ': q}
 
-    results_dict['Data points: '] = data_points_for_forecast
-    results_dict['ARIMA model order: '] = arima_model_order
-    results_dict['Steps: '] = steps
-    results_dict['Forecast: '] = forecast
+        results_dict['Data points: '] = arima_data_points
+        results_dict['ARIMA model order: '] = arima_model_order
+        results_dict['Steps: '] = steps
+        results_dict['Forecast: '] = forecast_arima
+    else:
+        results_dict['ARIMA results: '] = 'ARIMA model was not created'
 
     json[station_code] = results_dict
 
     return json
 
+
 @app.route('/get/forecast/arima/time_period', methods=['GET'])
 def get_forecast_arima_by_time_period():
-    sql_client = MySQLClient('XX.XX.XX.XX', 'xxx', 'xxx', 'xxx')
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
     value = request.args['value']
     station_code = request.args['station']
     steps = int(request.args['steps'])
-    optimize = request.args['optimize'] in ('true', 'True')
+    try:
+        optimize = request.args['optimize'] in ('true', 'True')
+    except KeyError:
+        optimize = True
 
     # YYYY-MM-DD ---> YYYY-MM-DD HH:MM:SS
     date_from = request.args['date_from'].replace('_', ' ')
@@ -224,23 +301,355 @@ def get_forecast_arima_by_time_period():
     data_df = DataHandler.get_datetime_and_measurements_dataframe(lists_of_datetime, list_of_measurements,
                                                                   date_from, date_till)
 
-    data_points_for_forecast, arima_model_order, steps, forecast_list = Arima_Main(data_df, steps, optimize).get_arima_forecast()
+    arima_data_points, arima_model_order, forecast_arima = Forecasting_model("ARIMA", data_df, steps,
+                                                                             optimize).get_forecast()
+
+    results_dict = dict()
+    json = dict()
+    if forecast_arima is not None:
+        p, d, q = arima_model_order
+
+        arima_model_order = {'p: ': p,
+                             'd: ': d,
+                             'q: ': q}
+
+        results_dict['Data points: '] = arima_data_points
+        results_dict['Date from: '] = date_from
+        results_dict['Date till: '] = date_till
+        results_dict['ARIMA model order: '] = arima_model_order
+        results_dict['Steps: '] = steps
+        results_dict['Forecast: '] = forecast_arima
+    else:
+        results_dict['ARIMA results: '] = 'ARIMA model was not created'
+
+    json[station_code] = results_dict
+
+    return json
+
+
+@app.route('/get/forecast/ar', methods=['GET'])
+def get_forecast_ar():
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
+    value = request.args['value']
+    station_code = request.args['station']
+    steps = int(request.args['steps'])
+    try:
+        optimize = request.args['optimize'] in ('true', 'True')
+    except KeyError:
+        optimize = True
+
+    records = sql_client.get_info_by_station(station_code)
+
+    index = DataHandler.get_index_of_value(value)
+
+    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
+    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+
+    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
+    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+
+    series_of_measurements = pd.Series(list_of_measurements)
+
+    ar_data_points, ar_model_order, forecast_ar = Forecasting_model("AR", series_of_measurements, steps,
+                                                                    optimize).get_forecast()
 
     results_dict = dict()
     json = dict()
 
-    p, d, q = arima_model_order
+    if forecast_ar is not None:
+        p, d, q = ar_model_order
 
-    arima_model_order = {'p: ': p,
-                         'd: ': d,
-                         'q: ': q}
+        ar_model_order = {'p: ': p}
 
-    results_dict['Data points: '] = data_points_for_forecast
-    results_dict['Date from: '] = date_from
-    results_dict['Date till: '] = date_till
-    results_dict['ARIMA model order: '] = arima_model_order
-    results_dict['Steps: '] = steps
-    results_dict['Forecast: '] = forecast_list
+        results_dict['Data points: '] = ar_data_points
+        results_dict['AR model order: '] = ar_model_order
+        results_dict['Steps: '] = steps
+        results_dict['Forecast: '] = forecast_ar
+    else:
+        results_dict['AR results: '] = 'AR model was not created'
+
+    json[station_code] = results_dict
+
+    return json
+
+
+@app.route('/get/forecast/ma', methods=['GET'])
+def get_forecast_ma():
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
+    value = request.args['value']
+    station_code = request.args['station']
+    steps = int(request.args['steps'])
+    try:
+        optimize = request.args['optimize'] in ('true', 'True')
+    except KeyError:
+        optimize = True
+
+    records = sql_client.get_info_by_station(station_code)
+
+    index = DataHandler.get_index_of_value(value)
+
+    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
+    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+
+    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
+    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+
+    series_of_measurements = pd.Series(list_of_measurements)
+
+    ma_data_points, ma_model_order, forecast_ma = Forecasting_model("MA", series_of_measurements, steps,
+                                                                    optimize).get_forecast()
+
+    results_dict = dict()
+    json = dict()
+
+    if forecast_ma is not None:
+        p, d, q = ma_model_order
+
+        ma_model_order = {'q: ': q}
+
+        results_dict['Data points: '] = ma_data_points
+        results_dict['MA model order: '] = ma_model_order
+        results_dict['Steps: '] = steps
+        results_dict['Forecast: '] = forecast_ma
+    else:
+        results_dict['MA results: '] = 'MA model was not created'
+
+    json[station_code] = results_dict
+
+    return json
+
+
+@app.route('/get/forecast/arma', methods=['GET'])
+def get_forecast_arma():
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
+    value = request.args['value']
+    station_code = request.args['station']
+    steps = int(request.args['steps'])
+    try:
+        optimize = request.args['optimize'] in ('true', 'True')
+    except KeyError:
+        optimize = True
+
+    records = sql_client.get_info_by_station(station_code)
+
+    index = DataHandler.get_index_of_value(value)
+
+    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
+    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+
+    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
+    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+
+    series_of_measurements = pd.Series(list_of_measurements)
+
+    arma_data_points, arma_model_order, forecast_arma = Forecasting_model("ARMA", series_of_measurements, steps,
+                                                                          optimize).get_forecast()
+
+    results_dict = dict()
+    json = dict()
+
+    if forecast_arma is not None:
+        p, d, q = arma_model_order
+
+        arma_model_order = {'p: ': p,
+                            'q: ': q}
+
+        results_dict['Data points: '] = arma_data_points
+        results_dict['ARMA model order: '] = arma_model_order
+        results_dict['Steps: '] = steps
+        results_dict['Forecast: '] = forecast_arma
+    else:
+        results_dict['ARMA results: '] = 'ARMA model was not created'
+
+    json[station_code] = results_dict
+
+    return json
+
+
+@app.route('/get/forecast/all_models', methods=['GET'])
+def get_forecast_all_models():
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
+    value = request.args['value']
+    station_code = request.args['station']
+    steps = int(request.args['steps'])
+    try:
+        optimize = request.args['optimize'] in ('true', 'True')
+    except KeyError:
+        optimize = True
+
+    records = sql_client.get_info_by_station(station_code)
+
+    index = DataHandler.get_index_of_value(value)
+
+    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
+    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+
+    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
+    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+
+    series_of_measurements = pd.Series(list_of_measurements)
+
+    arima_data_points, arima_model_order, forecast_arima = Forecasting_model("ARIMA", series_of_measurements, steps,
+                                                                             optimize).get_forecast()
+
+    arma_data_points, arma_model_order, forecast_arma = Forecasting_model("ARMA", series_of_measurements, steps,
+                                                                          optimize).get_forecast()
+
+    ar_data_points, ar_model_order, forecast_ar = Forecasting_model("AR", series_of_measurements, steps,
+                                                                    optimize).get_forecast()
+
+    ma_data_points, ma_model_order, forecast_ma = Forecasting_model("MA", series_of_measurements, steps,
+                                                                    optimize).get_forecast()
+
+    results_dict = dict()
+    json = dict()
+
+    # ARIMA results
+    if forecast_arima is not None:
+        p, d, q = arima_model_order
+        arima_model_order = {'p: ': p,
+                             'd: ': d,
+                             'q: ': q}
+
+        results_dict['Data points for ARIMA: '] = arima_data_points
+        results_dict['ARIMA model order: '] = arima_model_order
+        results_dict['Steps: '] = steps
+        results_dict['ARIMA forecast: '] = forecast_arima
+    else:
+        results_dict['ARIMA results: '] = 'ARIMA model was not created'
+
+    # ARMA results
+    if forecast_arma is not None:
+        p, d, q = arma_model_order
+        arma_model_order = {'p: ': p,
+                            'q: ': q}
+
+        results_dict['Data points for ARMA: '] = arma_data_points
+        results_dict['ARMA model order: '] = arma_model_order
+        results_dict['Steps: '] = steps
+        results_dict['ARMA forecast: '] = forecast_arma
+    else:
+        results_dict['ARMA results: '] = 'ARMA model was not created'
+
+    # AR results
+    if forecast_ar is not None:
+        p, d, q = ar_model_order
+        ar_model_order = {'p: ': p}
+
+        results_dict['Data points for AR: '] = ar_data_points
+        results_dict['AR model order: '] = ar_model_order
+        results_dict['Steps: '] = steps
+        results_dict['AR forecast: '] = forecast_ar
+    else:
+        results_dict['AR results: '] = 'AR model was not created'
+
+    # MA results
+    if forecast_ma is not None:
+        p, d, q = ma_model_order
+        ma_model_order = {'q: ': q}
+
+        results_dict['Data points for MA: '] = ma_data_points
+        results_dict['MA model order: '] = ma_model_order
+        results_dict['Steps: '] = steps
+        results_dict['MA forecast: '] = forecast_ma
+    else:
+        results_dict['MA results: '] = 'MA model was not created'
+
+    json[station_code] = results_dict
+
+    return json
+
+
+@app.route('/get/forecast/all_models/with/1d_kalman_filter', methods=['GET'])
+def get_forecast_all_models_with_1d_kalman_filter():
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
+    value = request.args['value']
+    station_code = request.args['station']
+    steps = int(request.args['steps'])
+    try:
+        optimize = request.args['optimize'] in ('true', 'True')
+    except KeyError:
+        optimize = True
+
+    records = sql_client.get_info_by_station(station_code)
+
+    index = DataHandler.get_index_of_value(value)
+
+    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
+    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+
+    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
+    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+
+    filtered_values = KF_1D(list_of_measurements).get_filtered_values()
+
+    series_of_measurements = pd.Series(filtered_values)
+
+    arima_data_points, arima_model_order, forecast_arima = Forecasting_model("ARIMA", series_of_measurements, steps,
+                                                                             optimize).get_forecast()
+
+    arma_data_points, arma_model_order, forecast_arma = Forecasting_model("ARMA", series_of_measurements, steps,
+                                                                          optimize).get_forecast()
+
+    ar_data_points, ar_model_order, forecast_ar = Forecasting_model("AR", series_of_measurements, steps,
+                                                                    optimize).get_forecast()
+
+    ma_data_points, ma_model_order, forecast_ma = Forecasting_model("MA", series_of_measurements, steps,
+                                                                    optimize).get_forecast()
+
+    results_dict = dict()
+    json = dict()
+
+    # ARIMA results
+    if forecast_arima is not None:
+        p, d, q = arima_model_order
+        arima_model_order = {'p: ': p,
+                             'd: ': d,
+                             'q: ': q}
+
+        results_dict['Data points for ARIMA: '] = arima_data_points
+        results_dict['ARIMA model order: '] = arima_model_order
+        results_dict['Steps: '] = steps
+        results_dict['ARIMA forecast: '] = forecast_arima
+    else:
+        results_dict['ARIMA results: '] = 'ARIMA model was not created'
+
+    # ARMA results
+    if forecast_arma is not None:
+        p, d, q = arma_model_order
+        arma_model_order = {'p: ': p,
+                            'q: ': q}
+
+        results_dict['Data points for ARMA: '] = arma_model_order
+        results_dict['ARMA model order: '] = arma_model_order
+        results_dict['Steps: '] = steps
+        results_dict['ARMA forecast: '] = forecast_arma
+    else:
+        results_dict['ARMA results: '] = 'ARMA model was not created'
+
+    # AR results
+    if forecast_ar is not None:
+        p, d, q = ar_model_order
+        ar_model_order = {'p: ': p}
+
+        results_dict['Data points for AR: '] = ar_model_order
+        results_dict['AR model order: '] = ar_model_order
+        results_dict['Steps: '] = steps
+        results_dict['AR forecast: '] = forecast_ar
+    else:
+        results_dict['AR results: '] = 'AR model was not created'
+
+    # MA results
+    if forecast_ma is not None:
+        p, d, q = ma_model_order
+        ma_model_order = {'q: ': q}
+
+        results_dict['Data points for MA: '] = ma_model_order
+        results_dict['MA model order: '] = ma_model_order
+        results_dict['Steps: '] = steps
+        results_dict['MA forecast: '] = forecast_ma
+    else:
+        results_dict['MA results: '] = 'MA model was not created'
 
     json[station_code] = results_dict
 

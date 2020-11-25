@@ -1,19 +1,14 @@
-from Program.DataHandler import DataHandler
-from Program.KalmanFilter import KalmanFilter
-from Program.AutoDBFiller import AutoDBFiller
-from Program.GraphEditor import GraphEditor
-from Program.FileHandler import FileHandler
-from Program.MySQLClient import MySQLClient
-from Program.MongoDBClient import MongoDBClient
-from Program.Request import Request
-from matplotlib import pyplot as plt
 import openpyxl
 from openpyxl import Workbook
 from openpyxl import load_workbook
-import numpy as np
+
+from Program.DataHandler import DataHandler
+from Program.GraphEditor import GraphEditor
+from Program.KalmanFilter import KalmanFilter
+from Program.MySQLClient import MySQLClient
 
 if __name__ == '__main__':
-    sql_client = MySQLClient('xx.xx.xx.xx', 'xxx', 'xxx', 'xxx')
+    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
 
     value = 'Dew Point °C'
     period = '19 Jan - 19 Feb 2020'
@@ -78,4 +73,3 @@ if __name__ == '__main__':
 
     else:
         wb_to_write.save('results.xlsx')
-

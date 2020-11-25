@@ -1,8 +1,10 @@
+from datetime import datetime, timedelta
+
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
-from Program.TimeStamps import TimeStamps
+
 from Program.Request_data import headers, login_data
+from Program.TimeStamps import TimeStamps
 
 
 class Request:
