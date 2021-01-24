@@ -1354,18 +1354,148 @@
 <p>This method returns the best model order using the Akaike information criterion for characterizing and d value from <em>d_value_and_ADF_test </em>method. AIC estimates the relative amount of information lost by a given model: the less information a model loses, the higher its quality.</p>
 <p>&nbsp;</p>
 <p>&nbsp;</p>
-<h1><a name="_Toc57222452"></a><a name="_Toc57222869"></a>9.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Kalman Filter 1D and 2D</h1>
+<h1>6.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FORECASTING MODELS</h1>
 <p>&nbsp;</p>
-<p>For data, smoothing is used Kalman Filter from <strong>KF.py</strong>. When data is one-dimensional, it can be used class <strong>KF_1D, </strong>and when the data contains position and velocity (x, v) must be used class <strong>KF_2D</strong>. For using with Kalman Filter must be installed modules such as <strong>pykalman</strong>.</p>
+<ol>
+<li><em>Models</em></li>
+</ol>
+<p>For creating a forecasting model is used Forecasting_model class instance, where can be specified model name, steps for making forecast, optimize value, max p and max q value for models.</p>
+<p>&nbsp;</p>
+<p>Definition of __init__()</p>
+<p>def __init__(self, model_name, data_series, steps: int, station_code: str,<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; max_p_value=6, max_q_value=6):<br /> <br /> &nbsp;&nbsp;&nbsp; self.model_name = model_name<br /> &nbsp;&nbsp;&nbsp; self.data_series = data_series<br /> &nbsp;&nbsp;&nbsp; self.steps = steps<br /> <br /> &nbsp;&nbsp;&nbsp; if len(self.data_series) &lt;= 100:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; raise Exception("Data must contains more than 100 measurements")<br /> <br /> &nbsp;&nbsp;&nbsp; self.station_code = station_code<br /> <br /> &nbsp;&nbsp;&nbsp; self.min_aic_value = None<br /> &nbsp;&nbsp;&nbsp; self.data_points_to_use = None<br /> &nbsp;&nbsp;&nbsp; self.best_model_order = None<br /> <br /> &nbsp;&nbsp;&nbsp; # range (0, 3) == [ 0, 1, 2 ]<br /> &nbsp;&nbsp;&nbsp; if model_name == "ARIMA":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.d_values = range(0, 3)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.p_values = range(0, max_p_value)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.q_values = range(0, max_q_value)<br /> &nbsp;&nbsp;&nbsp; elif model_name == "ARMA":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.d_values = range(0, 1)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.p_values = range(0, max_p_value)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.q_values = range(0, max_q_value)<br /> &nbsp;&nbsp;&nbsp; elif model_name == "AR":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.d_values = range(0, 1)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.q_values = range(0, 1)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.p_values = range(0, max_p_value)<br /> &nbsp;&nbsp;&nbsp; elif model_name == "MA":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.d_values = range(0, 1)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.p_values = range(0, 1)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.q_values = range(0, max_q_value)<br /> &nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; raise Exception("The model name {} is incorrect".format(model_name))</p>
+<p>&nbsp;</p>
+<p><em>&nbsp;</em></p>
+<ol>
+<li><em>Forecast</em></li>
+</ol>
+<p>For making forecast with model is used <strong>Forecast_model.py </strong>with modules such as <strong>pandas</strong> for working with data frames and data series, <strong>numpy </strong>and <strong>ARIMA </strong>from <strong>statsmodels.tsa.arima_model</strong>. For making forecast and receive all information that was used for forecasting, it is needed to create class instance and use correct method as shown here:</p>
+<p>arima_model = ForecastingModel("ARIMA", series_of_measurements, steps, station_code)<br /> forecast_arima = arima_model.get_forecast()<br /> arima_data_points = arima_model.data_points_to_use<br /> arima_model_order = arima_model.best_model_order<br /> <br /> arma_model = ForecastingModel("ARMA", series_of_measurements, steps, station_code)<br /> forecast_arma = arma_model.get_forecast()<br /> arma_data_points = arma_model.data_points_to_use<br /> arma_model_order = arma_model.best_model_order<br /> <br /> ar_model = ForecastingModel("AR", series_of_measurements, steps, station_code)<br /> forecast_ar = ar_model.get_forecast()<br /> ar_data_points = ar_model.data_points_to_use<br /> ar_model_order = ar_model.best_model_order<br /> <br /> ma_model = ForecastingModel("MA", series_of_measurements, steps, station_code)<br /> forecast_ma = ma_model.get_forecast()<br /> ma_data_points = ma_model.data_points_to_use<br /> ma_model_order = ma_model.best_model_order</p>
+<p>&nbsp;</p>
+<p>IMPORTANT NOTE!</p>
+<p>&nbsp;</p>
+<p><em>series_of_measurements</em> must contain only one data column and one index column, because for making forecast are used <em>series_of_measurements</em> values.</p>
+<p>&nbsp;</p>
+<p>Definition of get_ forecast()</p>
+<p>def get_forecast(self):<br /> &nbsp;&nbsp;&nbsp; models_for_all_data_points_dict = self.get_possible_models_for_all_data_points_dict()<br /> <br /> &nbsp;&nbsp;&nbsp; self.get_lowest_aic_value_and_data_points_from_dict(models_for_all_data_points_dict)<br /> <br /> &nbsp;&nbsp;&nbsp; if self.data_points_to_use is None:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return None<br /> <br /> &nbsp;&nbsp;&nbsp; data_series_copy = self.data_series[-self.data_points_to_use:].copy()<br /> <br /> &nbsp;&nbsp;&nbsp; forecast = self.make_forecast(data_series_copy)<br /> <br /> &nbsp;&nbsp;&nbsp; return forecast</p>
+<p>&nbsp;</p>
+<p>As a result we get a list of forecast values.</p>
+<p>&nbsp;</p>
+<p>Definition of get_possible_models_for_all_data_points_dict()</p>
+<p>def get_possible_models_for_all_data_points_dict(self) -&gt; dict:<br /> &nbsp;&nbsp;&nbsp; if len(self.data_series) &lt;= 1000:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; data_optimize_points = len(self.data_series)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; point_range = int(data_optimize_points / 10)<br /> &nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; data_optimize_points = 1010<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; point_range = 100<br /> <br /> &nbsp;&nbsp;&nbsp; models_order_and_data_points_dict = dict()<br /> &nbsp;&nbsp;&nbsp; last_point = len(self.data_series)<br /> <br /> &nbsp;&nbsp;&nbsp; data_point_range = range(100, data_optimize_points, point_range)<br /> &nbsp;&nbsp;&nbsp; for data_points in data_point_range:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; first_point = last_point - data_points<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if first_point &lt; 0:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; break<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; data_series_copy = self.data_series[first_point:last_point].copy()<br /> <br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; order_and_min_aic_value = self.get_order_and_min_aic_value(data_series_copy)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if order_and_min_aic_value is None:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; continue<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; models_order_and_data_points_dict[data_points] = order_and_min_aic_value<br /> <br /> &nbsp;&nbsp;&nbsp; return models_order_and_data_points_dict</p>
+<p>This method returns a dictionary with data points and with the best ARIMA model order for this data set. It looks like this:</p>
+<p>{ data_points1 : { (model_order_1) : aic_value_1 }, data_points2 : { (model_order_2) : aic_value_2 }, &hellip; }</p>
+<p>or</p>
+<p>{ 100 : { (3, 1, 4) : 105 }, 110 : { (4, 1, 4) : 209 } &hellip; }</p>
+<p>&nbsp;</p>
+<p>Definition of make_ forecast()</p>
+<p>def make_forecast(self, data_series):<br /> <br /> &nbsp;&nbsp;&nbsp; model = ARIMA(data_series, order=self.best_model_order).fit(disp=False)<br /> &nbsp;&nbsp;&nbsp; forecast_list = model.forecast(steps=self.steps)[0].tolist()<br /> <br /> &nbsp;&nbsp;&nbsp; return forecast_list</p>
+<p>Method uses the best ARIMA model order, that was find before, and returns list of forecast value. The number of received values in the list is equal with steps value.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<ul>
+<li><em>Model order</em></li>
+</ul>
+<p>To determine model order is used with modules <strong>adfuller </strong>test from <strong>statsmodels.tsa.stattools</strong> for finding p-value, that indicates if model is stationary or not, also can be used <strong>plot_pacf</strong>, <strong>plot_acf </strong>from <strong>statsmodels.graphics.tsaplots </strong>and <strong>pyplot</strong> for showing autocorrelation and partial autocorrelation graphs.</p>
+<p>&nbsp;</p>
+<p>Definition of get_d_value_and_ADF_test()</p>
+<p>def get_d_value_and_ADF_test(data_series):<br /> <br /> &nbsp;&nbsp;&nbsp; # ----- Augmented Dickey-Fuller test ----- #<br /> &nbsp;&nbsp;&nbsp; # ----- p-value &gt; 0.05: the data has a unit root and is non-stationary ----- #<br /> &nbsp;&nbsp;&nbsp; # ----- p-value &lt;= 0.05: the data does not have a unit root and is stationary ----- #<br /> &nbsp;&nbsp;&nbsp; # ----- The more negative is ADF Statistic, the more likely we have a stationary dataset ----- #<br /> <br /> &nbsp;&nbsp;&nbsp; d = 0<br /> &nbsp;&nbsp;&nbsp; try:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; adf_test_results = adfuller(data_series.values)<br /> &nbsp;&nbsp;&nbsp; except:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return d<br /> <br /> &nbsp;&nbsp;&nbsp; data_series_diff = data_series<br /> &nbsp;&nbsp;&nbsp; while adf_test_results[1] &gt; 0.05 or d == 0:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if d &gt; 2:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return 0<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # ----- make data stationary and drop NA values ----- #<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; data_series_diff = data_series_diff.diff().dropna()<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; d += 1<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; try:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; data_series_diff_values = data_series_diff.values<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; adf_test_results = adfuller(data_series_diff_values)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; except:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; d -= 1<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return d<br /> <br /> &nbsp;&nbsp;&nbsp; return d</p>
+<p>This method is used to define d value for ARIMA model (p, d , q) order. d represents the number of times that the data have to be &ldquo;differenced&rdquo; to produce a stationary signal (i.e., a signal that has a constant mean over time). This captures the &ldquo;integrated&rdquo; nature of ARIMA. If d=0, this means that our data does not tend to go up/down in the long term (i.e., the model is already &ldquo;stationary&rdquo;). In this case, then technically you are performing just ARMA, not AR-I-MA. If p is 1, then it means that the data is going up/down linearly. If p is 2, then it means that the data is going up/down exponentially. To define d value is used&nbsp; Augmented Dickey-Fuller test with p-value:</p>
+<ul>
+<li>p-value &gt; 0.05: the data has a unit root and is non-stationary.</li>
+<li>p-value &lt;= 0.05: the data does not have a unit root and is stationary.</li>
+<li>The more negative is ADF Statistic, the more likely we have a stationary dataset.</li>
+</ul>
+<p>&nbsp;</p>
+<p>Definition of get_order_and_min_aic_value()</p>
+<p>def get_order_and_min_aic_value(self, data_series):<br /> &nbsp;&nbsp;&nbsp; aic_dict = dict()<br /> <br /> &nbsp;&nbsp;&nbsp; if len(self.d_values) != 1:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; d = self.get_d_value_and_ADF_test(data_series)<br /> &nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; d = 0<br /> <br /> &nbsp;&nbsp;&nbsp; for p in self.p_values:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; for q in self.q_values:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; order = (p, d, q)<br /> <br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if order == (0, 0, 0):<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; continue<br /> <br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; try:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; arima_model = ARIMA(data_series, order).fit(disp=False)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; aic = arima_model.aic<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; aic_dict[order] = aic<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # print("Data Points: {}, Order: {}, AIC: {}".format(len(data_series), order, aic))<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; except:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; continue<br /> <br /> &nbsp;&nbsp;&nbsp; # if aic_dict is empty<br /> &nbsp;&nbsp;&nbsp; # it is impossible to create arima model for this data set<br /> &nbsp;&nbsp;&nbsp; if len(aic_dict) == 0:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return None<br /> &nbsp;&nbsp;&nbsp; else:<br /> <br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; min_aic_val = min(aic_dict.values())<br /> <br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; for key, value in aic_dict.items():<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if value == min_aic_val:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; result_dict = {key: value}<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # order = (p, d, q)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # {order: aic_value }<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return result_dict</p>
+<p>This method returns best model order using Akaike information criterion for characterizing and d value from <em>d_value_and_ADF_test </em>method. AIC estimates the relative amount of information lost by a given model: the less information a model loses, the higher the quality of that model</p>
+<p>&nbsp;</p>
+<h1>7.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; TIME HANDLING</h1>
+<p>&nbsp;</p>
+<p>Is used to store time valeus and extract data using datetime indexes.</p>
+<p>For <strong>TimaHandler.py</strong> is used such modules such as <strong>pandas</strong> for working with data frames and data series, <strong>datime</strong> and <strong>dateutil.relativedelta </strong>for getting datetime values.</p>
+<p>&nbsp;</p>
+<p>Definition of __init__()</p>
+<p>def __init__(self, datetime_unit_of_measure: str, period_value: int,<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; date_from: str = None, date_till: str = None, list_of_datetime: list = None):<br /> <br /> &nbsp;&nbsp;&nbsp; if date_from is None:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if list_of_datetime is None:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; raise Exception("Missing list_of_datetime value")<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;self.date_from = list_of_datetime[0]<br /> &nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.date_from = self.get_datetime_format(date_from)<br /> <br /> &nbsp;&nbsp;&nbsp; if date_till is None:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if list_of_datetime is None:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; raise Exception("Missing list_of_datetime value")<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.date_till = list_of_datetime[-1]<br /> &nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.date_till = self.get_datetime_format(date_till)<br /> <br /> &nbsp;&nbsp;&nbsp; # datetime delta number<br /> &nbsp;&nbsp;&nbsp; self.period_value = period_value<br /> <br /> &nbsp;&nbsp;&nbsp; # minute, year, second, hour ...<br /> &nbsp;&nbsp;&nbsp; self.datetime_unit_of_measure = datetime_unit_of_measure<br /> &nbsp;&nbsp;&nbsp; # 1 minute<br /> &nbsp;&nbsp;&nbsp; self.datetime_value_of_one_unit = self.get_datetime_value_of_one_unit()<br /> &nbsp;&nbsp;&nbsp; # 11 minutes, 1 hour, 15 days ...<br /> &nbsp;&nbsp;&nbsp; self.datetime_delta_value = self.get_datetime_delta_value()</p>
+<p>&nbsp;</p>
+<p>Definition of get_datetime_format()</p>
+<p>def get_datetime_format(date_time: str):<br /> &nbsp;&nbsp;&nbsp; if len(date_time) == 10:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; date_time += " 00:00:00"<br /> &nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; date_time += ":00"<br /> &nbsp;&nbsp;&nbsp; date_time = datetime.datetime.strptime(date_time, format("%Y-%m-%d %H:%M:%S"))<br /> &nbsp;&nbsp;&nbsp; return date_time</p>
+<p>Returns datetime format.</p>
+<p>&nbsp;</p>
+<p>Definition of <em>get_datetime_from_series ()</em></p>
+<p>def get_datetime_from_series(self, data_series, date_from_request):<br /> <br /> &nbsp;&nbsp;&nbsp; max_number_of_iterations = TimeHandler.get_max_number_of_iterations(self.datetime_unit_of_measure)<br /> &nbsp;&nbsp;&nbsp; i = 0<br /> &nbsp;&nbsp;&nbsp; while data_series.loc[data_series.index == date_from_request].empty:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; date_from_request += self.datetime_value_of_one_unit<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; i += 1<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if i &gt;= max_number_of_iterations:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return -1<br /> <br /> &nbsp;&nbsp;&nbsp; return date_from_request</p>
+<p>By the increasing data_from_request by one datetime_value_of_one_unit program try ti find this datetime index in the series until reach the max nimber of possible iterations.</p>
+<p>&nbsp;</p>
+<p>Definition of <em>get_max_number_of_iterations()</em></p>
+<p>def get_max_number_of_iterations(datetime_unit_of_measure):<br /> &nbsp;&nbsp;&nbsp; if datetime_unit_of_measure == "second":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return 60<br /> &nbsp;&nbsp;&nbsp; elif datetime_unit_of_measure == "minute":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return 60<br /> &nbsp;&nbsp;&nbsp; elif datetime_unit_of_measure == "hour":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return 24<br /> &nbsp;&nbsp;&nbsp; elif datetime_unit_of_measure == "day":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return 31<br /> &nbsp;&nbsp;&nbsp; elif datetime_unit_of_measure == "month":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return 12<br /> &nbsp;&nbsp;&nbsp; elif datetime_unit_of_measure == "year":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return 10<br /> &nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; raise Exception("Parameter time_period_unit must be timedelta value")</p>
+<p>Based on <em>datetime_unit_of_measure</em> values returns max number of iterations, that can be used for finding data series datetime index. Without it process of finding datetime index in the series can last forever.</p>
+<p>&nbsp;</p>
+<p>Definition of <em>get_datetime_value_of_one_unit()</em></p>
+<p>def get_datetime_value_of_one_unit(self):<br /> &nbsp;&nbsp;&nbsp; delta_value = 1<br /> &nbsp;&nbsp;&nbsp; if self.datetime_unit_of_measure == "second":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; datetime_value_of_one_unit = datetime.timedelta(seconds=delta_value)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return datetime_value_of_one_unit<br /> &nbsp;&nbsp;&nbsp; elif self.datetime_unit_of_measure == "minute":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; datetime_value_of_one_unit = datetime.timedelta(minutes=delta_value)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return datetime_value_of_one_unit<br /> &nbsp;&nbsp;&nbsp; elif self.datetime_unit_of_measure == "hour":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; datetime_value_of_one_unit = datetime.timedelta(hours=delta_value)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return datetime_value_of_one_unit<br /> &nbsp;&nbsp;&nbsp; elif self.datetime_unit_of_measure == "day":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; datetime_value_of_one_unit = datetime.timedelta(days=delta_value)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return datetime_value_of_one_unit<br /> &nbsp;&nbsp;&nbsp; elif self.datetime_unit_of_measure == "month":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; datetime_value_of_one_unit = dateutil.relativedelta.relativedelta(months=delta_value)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return datetime_value_of_one_unit<br /> &nbsp;&nbsp;&nbsp; elif self.datetime_unit_of_measure == "year":<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; datetime_value_of_one_unit = dateutil.relativedelta.relativedelta(years=delta_value)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return datetime_value_of_one_unit<br /> &nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; raise Exception("Parameter time_period_unit must be timedelta value")</p>
+<p>Returns one unit of datetime value.</p>
+<p>&nbsp;</p>
+<p>Definition of <em>get_datetime_and_measurements_series()</em></p>
+<p>def get_datetime_and_measurements_series(self, list_of_measurements, list_of_datetime):<br /> <br /> &nbsp;&nbsp;&nbsp; data_series = pd.Series(list_of_measurements, index=list_of_datetime, dtype=float)<br /> <br /> &nbsp;&nbsp;&nbsp; date_from = self.get_datetime_from_series(data_series, self.date_from)<br /> &nbsp;&nbsp;&nbsp; date_till = self.get_datetime_from_series(data_series, self.date_till)<br /> <br /> &nbsp;&nbsp;&nbsp; if date_from == -1 or date_till == -1:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return pd.Series()<br /> <br /> &nbsp;&nbsp;&nbsp; data_series = data_series.loc[date_from:date_till]<br /> <br /> &nbsp;&nbsp;&nbsp; return data_series</p>
+<p>Returns series with datetime index format. If in series can&rsquo;t be found date will bw returned empty series. </p>
+<h1>8.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DATA EMPTY VALUES FILLING</h1>
+<p>&nbsp;</p>
+<p>Is used to fill empty data values &ndash; None or NaN values.</p>
+<p>For <strong>DataFiller.py</strong> is used such modules such as <strong>math</strong> for detecting Nan values, <strong>pandas</strong> for working with data frames and data series, <strong>DataHandler</strong>, <strong>MySQLClient</strong> for extracting additional data and <strong>TimeHandler</strong>.</p>
+<p>DattaFiller use data from nearest stations, that was defined using clustering method, for filling None or NaN values in the series.</p>
+<p>&nbsp;</p>
+<p>Definition of __init__()</p>
+<p>def __init__(self, data_series, station_clusters_df, station_code,<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; time_handler: TimeHandler, sql_client: MySQLClient):<br /> <br /> &nbsp;&nbsp;&nbsp; self.station_code = station_code<br /> <br /> &nbsp;&nbsp;&nbsp; self.sql_client = sql_client<br /> &nbsp;&nbsp;&nbsp; self.time_handler = time_handler<br /> <br /> &nbsp;&nbsp;&nbsp; self.data_series = data_series<br /> &nbsp;&nbsp;&nbsp; self.station_clusters_df = station_clusters_df</p>
+<p>&nbsp;</p>
+<p>Definition of get_list_of_stations_codes_to_use()</p>
+<p>def get_list_of_stations_codes_to_use(self):<br /> &nbsp;&nbsp;&nbsp; cluster_position = self.station_clusters_df.loc[self.station_code]["cluster"]<br /> &nbsp;&nbsp;&nbsp; stations_to_use = self.station_clusters_df[(self.station_clusters_df["cluster"] == cluster_position)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &amp; (self.station_clusters_df.index != self.station_code)]<br /> <br /> &nbsp;&nbsp;&nbsp; return list(stations_to_use.index)</p>
+<p>&nbsp;</p>
+<p>Returns list of nearest stations that are located in the same cluster with the station witch data we try to fill.</p>
+<p>&nbsp;</p>
+<p>Definition of fill_the_data_none_values()</p>
+<p>def fill_the_data_none_values(self, value):<br /> &nbsp;&nbsp;&nbsp; stations_codes_to_use_list = self.get_list_of_stations_codes_to_use()<br /> <br /> &nbsp;&nbsp;&nbsp; series_s = []<br /> <br /> &nbsp;&nbsp;&nbsp; for station_code in stations_codes_to_use_list:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; records = self.sql_client.get_info_by_station(station_code)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if not records:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; continue<br /> <br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; list_of_measurements = DataHandler.get_filled_list_of_measurements(records, value)<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; list_of_datetime = DataHandler.get_exact_value_from_many_my_sql_records([records], 2)[0]<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; series = self.time_handler.get_datetime_and_measurements_series(list_of_measurements, list_of_datetime)<br /> <br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if not series.empty:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; series_s.append(series)<br /> <br /> &nbsp;&nbsp;&nbsp; for datetime, measurement in self.data_series[self.data_series.isnull()].items():<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; temp_measurement = 0<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; i_temp = 0<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; for series in series_s:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;temp_datetime = self.time_handler.\<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; get_datetime_from_dataframe_with_delta_limitation(series, datetime, self.time_handler.period_value)<br /> <br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if temp_datetime != -1:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; temp_value = series.loc[temp_datetime]<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if type(temp_value) == pandas.Series:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; continue<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if temp_value is not None and not math.isnan(temp_value):<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; temp_measurement += temp_value<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; i_temp += 1<br /> <br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if i_temp != 0:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; temp_measurement = temp_measurement / i_temp<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.data_series.loc[datetime] = temp_measurement<br /> <br /> &nbsp;&nbsp;&nbsp; return self.data_series</p>
+<p>Goes through fo all data series that are located in the same cluster and extracts data value with the same datetime index or with the datetime index that was taken shortly before (in this way in used limitation for finding datetime index from <strong>TimeHandler</strong>)</p>
+<p>As a result returns series with filled data points.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h1>9.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CLUSTERING</h1>
+<p>&nbsp;</p>
+<p>Clustering method is used for <strong>DataFiller</strong> for finding the stations. That are located in the one cluster. In the <strong>Cluster.py</strong> is used modeles such as <strong>KMeans</strong> for clustering algorithm that aims to partition n observations into <strong>k</strong> clusters, <strong>MinMaxScaler</strong> for transforming features by scaling each feature to a given range (This estimator scales and translates each feature individually such that it is in the given range on the training set, e.g. between zero and one), <strong>math</strong> for finding square root, <strong>pandas</strong> and <strong>numpy</strong>.</p>
+<p>Definition of __init__()</p>
+<p>def __init__(self, records, max_k_value=10, default_k_value=None, path_to_save_results=None):<br /> &nbsp;&nbsp;&nbsp; self.k_range = range(1, max_k_value)<br /> &nbsp;&nbsp;&nbsp; self.records_df = self.get_records_df(records)<br /> &nbsp;&nbsp;&nbsp; self.lat_and_lng_array = self.get_lat_and_lng_array()<br /> <br /> &nbsp;&nbsp;&nbsp; self.path_to_save_results = path_to_save_results<br /> &nbsp;&nbsp;&nbsp; if path_to_save_results is not None:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.save_results = True<br /> &nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.save_results = False<br /> <br /> &nbsp;&nbsp;&nbsp; self.default_k_value = default_k_value<br /> <br /> &nbsp;&nbsp;&nbsp; self.dist_points_from_cluster_center = None<br /> &nbsp;&nbsp;&nbsp; self.distance_of_points_from_line = None<br /> <br /> &nbsp;&nbsp;&nbsp; if default_k_value is None:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.optimal_k_value = self.get_optimal_k_value()<br /> &nbsp;&nbsp;&nbsp; else:<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.optimal_k_value = default_k_value</p>
+<p>For the rocords value is used data with station codes and with latitude and longitude for each station. As a default value of <em>max_k_value</em> used integer 10. If <em>default_k_value</em> is not specified algorithm automatically finds the <em>optimal_k_value</em>.</p>
+<p>&nbsp;</p>
+<p>Definition of <em>get_records_df()</em></p>
+<p>def get_records_df(records):<br /> &nbsp;&nbsp;&nbsp; records_df = pd.DataFrame.from_records(records, columns=["index", "code", "name", "lat", "lng"])<br /> &nbsp;&nbsp;&nbsp; records_df = records_df[["code", "lat", "lng"]]<br /> <br /> &nbsp;&nbsp;&nbsp; records_df["lat"] = records_df["lat"].astype(float)<br /> &nbsp;&nbsp;&nbsp; records_df["lng"] = records_df["lng"].astype(float)<br /> <br /> &nbsp;&nbsp;&nbsp; return records_df</p>
+<p>Returns a data frame with all stations with latitude and longitude as float numbers.</p>
+<p>&nbsp;</p>
+<p>Definition of <em>get_lat_and_lng_array()</em></p>
+<p>def get_lat_and_lng_array(self):<br /> &nbsp;&nbsp;&nbsp; lat_and_lng_array = np.column_stack((self.records_df["lng"], self.records_df["lat"]))<br /> &nbsp;&nbsp;&nbsp; return lat_and_lng_array</p>
+<p>Returns 2D array for latitude and longitude using records data frame.</p>
+<p>&nbsp;</p>
+<p>Definition of <em>get_optimal_k_value()</em></p>
+<p>def get_optimal_k_value(self):<br /> &nbsp;&nbsp;&nbsp; self.dist_points_from_cluster_center = self.get_dist_points_from_cluster_center_using_k_range()<br /> &nbsp;&nbsp;&nbsp; self.distance_of_points_from_line = self.cal_distance_of_points_from_line()<br /> <br /> &nbsp;&nbsp;&nbsp; opt_value = self.distance_of_points_from_line.index(max(<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; self.distance_of_points_from_line)) + 1<br /> &nbsp;&nbsp;&nbsp; return opt_value</p>
+<p>Return the <em>optimal_k_value</em>.</p>
+<p>&nbsp;</p>
+<p>Definition of <em>make_clustering()</em></p>
+<p>def make_clustering(self):<br /> &nbsp;&nbsp;&nbsp; km = KMeans(n_clusters=self.optimal_k_value)<br /> &nbsp;&nbsp;&nbsp; predicted = km.fit_predict(self.records_df[["lng", "lat"]])<br /> &nbsp;&nbsp;&nbsp; self.records_df["cluster"] = predicted</p>
+<p>Make clustering and returns a data frame with station codes and with cluster nuber for each station.</p>
+<p>Definition of <em>make_scaler()</em></p>
+<p>def make_scaler(self):<br /> &nbsp;&nbsp;&nbsp; scaler = MinMaxScaler()<br /> <br /> &nbsp;&nbsp;&nbsp; scaler.fit(self.records_df[["lat"]])<br /> &nbsp;&nbsp;&nbsp; self.records_df["lat"] = scaler.transform(self.records_df[["lat"]])<br /> <br /> &nbsp;&nbsp;&nbsp; scaler.fit(self.records_df[["lng"]])<br /> &nbsp;&nbsp;&nbsp; self.records_df["lng"] = scaler.transform(self.records_df[["lng"]])</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h1>10.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; KALMAN FILTER 1D AND 2D</h1>
+<p>&nbsp;</p>
+<p>For data smoothing is used Kalman Filter from <strong>KF.py</strong>. When datac is one-dimensional it can be used class <strong>KF_1D </strong>and when your data contains position and velocity (x, v) must be used class <strong>KF_2D</strong>. For using with Kalman Filter must be installed modules such as <strong>pykalman</strong>.</p>
 <p>&nbsp;</p>
 <ol>
 <li><em>One-dimensional Kalman Filter </em></li>
 </ol>
-<p>&nbsp;</p>
 <p>For getting smoothed values must be used class <strong>KF_1D </strong>and as a input paramentrs must be used list of measurements:</p>
 <p>filtered_values = KF_1D(list_of_measurements).get_filtered_values()</p>
 <p>&nbsp;</p>
-<p><em>Definition of </em><em>get_filtered_values()</em></p>
+<p>Definition of get_filtered_values()</p>
 <p>def get_filtered_values(self):<br /> <br /> &nbsp;&nbsp;&nbsp; kf = KalmanFilter(transition_matrices=[1],<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; observation_matrices=[1],<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; initial_state_mean=0,<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; initial_state_covariance=1,<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; observation_covariance=1,<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; transition_covariance=0.05)<br /> <br /> &nbsp;&nbsp;&nbsp; state_means, state_covariances = kf.smooth(self.data_values_list)<br /> <br /> &nbsp;&nbsp;&nbsp; state_means_list = [state_mean[0] for state_mean in state_means]<br /> <br /> &nbsp;&nbsp;&nbsp; return state_means_list</p>
 <p>&nbsp;</p>
 <p>Returns a list of smoothed values.</p>
@@ -1373,11 +1503,11 @@
 <ol>
 <li><em>Two-dimensiona</em><em>l Kalman Filter </em></li>
 </ol>
-<p>&nbsp;</p>
-<p>For getting smoothed values with position and velocity (x, v) )must be used class <strong>KF_2D </strong>and as an input parameter must be used a list of measurements, starting position, starting velocity, and period of time when data was measured (time_delta):</p>
+<p>For getting smoothed values with position and velocity (x, v) )must be used class <strong>KF_2D </strong>and as a input paramentrs must be used list of measurements, starting position, starting velocity and period of time when data was measured (time_delta):</p>
 <p>filtered_values = KF_2D(list_of_measurements, position=position, velocity=velocity,<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; time_delta=time_delta).get_filtered_values()</p>
 <p><em>&nbsp;</em></p>
-<p>def get_filtered_values(self):<br /> <br /> &nbsp;&nbsp;&nbsp; kf = KalmanFilter(n_dim_obs=1, n_dim_state=2,<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; initial_state_mean=[self.position, self.velocity],<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; transition_matrices=[[1, self.time_delta], [0, 1]],&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; observation_matrices=[[1, 0]],&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; transition_offsets=[0.5 * self.time_delta ** 2, self.time_delta])<br /> <br /> &nbsp;&nbsp;&nbsp; state_means, state_covariances = kf.smooth(self.data_values_list)<br /> <br /> &nbsp;&nbsp;&nbsp; state_means_list = [state_mean[0] for state_mean in state_means]<br /> <br /> &nbsp;&nbsp;&nbsp; return state_means_list</p>
+<p>Definition of get_filtered_values ()</p>
+<p>def get_filtered_values(self):<br /> <br /> &nbsp;&nbsp;&nbsp; kf = KalmanFilter(n_dim_obs=1, n_dim_state=2,<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; initial_state_mean=[self.position, self.velocity],<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; transition_matrices=[[1, self.time_delta], [0, 1]],&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; observation_matrices=[[1, 0]],&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; transition_offsets=[0.5 * self.time_delta ** 2, self.time_delta])<br /> <br /> &nbsp;&nbsp;&nbsp; state_means, state_covariances = kf.smooth(self.data_values_list)<br /> <br /> &nbsp;&nbsp;&nbsp; state_means_list = [state_mean[0] for state_mean in state_means]<br /> <br /> &nbsp;&nbsp;&nbsp; return state_means_list</p>
 <p><em>&nbsp;</em></p>
 <p><em>&nbsp;</em></p>
 <p>For the two-dimensional Kalman Filter is used:</p>
@@ -1391,149 +1521,94 @@
 <p><em><br /> </em></p>
 <p><em>&nbsp;</em></p>
 <p><em>&nbsp;</em></p>
-<h1><a name="_Toc57222453"></a><a name="_Toc57222870"></a>10.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; API</h1>
+<h1>11.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; API</h1>
 <p>The fundamental representation of API that can be used as Web Service of this framework. Twelve routes are used:</p>
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/estimates/all</p>
-<p>&nbsp;</p>
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/estimates</p>
-<p>&nbsp;</p>
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/accuracies</p>
-<p>&nbsp;</p>
 <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /use/1d_kalman_filter</p>
 <p>&nbsp;</p>
 <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /use/2d_kalman_filter</p>
 <p>&nbsp;</p>
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/arima</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast</p>
 <p>&nbsp;</p>
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/arima/time_period</p>
-<p>&nbsp;</p>
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/ar</p>
-<p>&nbsp;</p>
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/ma</p>
-<p>&nbsp;</p>
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/arma</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/time_period</p>
 <p>&nbsp;</p>
 <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/all_models</p>
 <p>&nbsp;</p>
-<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/all_models/with/1d_kalman_filter</p>
-<p>&nbsp;</p>
 <p>All these requests have essential arguments and secondary ones. Every request has an essential argument <em>value</em>.</p>
 <p>&nbsp;</p>
-<h2><a name="_Toc57222454"></a><a name="_Toc57222871"></a>I.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/estimates/all</h2>
-<p>The first route returns JSON with estimates for all stations and chosen value. Essential argument: <em>value</em></p>
-<p>Secondary argument: <em>measurements</em></p>
-<p>For example:</p>
-<p><u>/get/estimates/all?value=Dew%20Point</u></p>
-<p>The server will return JSON with estimates for all datasets of Dew Point that are suitable for estimation.</p>
-<p><u>/get/estimates/all?value=Dew%20Point&amp;measurements=true</u></p>
-<p>If adding the <em>measurements </em>argument and set it to true, then JSON will contain measurements for every station.</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
-<p>&nbsp;</p>
-<h2><a name="_Toc57222455"></a><a name="_Toc57222872"></a>II.&nbsp; /get/estimates</h2>
-<p>The second route can return JSON with estimates for the exact station or stations. Essential argument: <em>value </em>and <em>stations</em></p>
-<p>Secondary argument: <em>measurements</em></p>
+<h2>I.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /use/1d_kalman_filter</h2>
+<p>Is used for getting smoothed values using one-dimensional Kalman Filter .</p>
+<p>Essential arguments: value, station, datetime_unit_of_measure, period_value.</p>
+<p>For <em>value</em> argumest can be used &ldquo;Dew Point&rdquo;, &ldquo;Air Temperature&rdquo; and etc.</p>
+<p>For <em>datetime_unit_of_measure </em>must be used <u>str</u> value, that defines unit of measure of time delta value (&ldquo;second&rdquo;, &ldquo;minute&rdquo;, &ldquo;hour&rdquo;, &ldquo;day&rdquo;, &ldquo;month&rdquo;, &ldquo;year&rdquo;)</p>
+<p>For <em>period_value </em>must be used <u>int</u> value, that defines delta value.</p>
+<p>If <em>period_value</em> is 11 and <em>datetime_unit_of_measure is </em>&ldquo;minute&rdquo;, it means delta value will be 11 minutes.</p>
 <p><em>For example:</em></p>
-<p><u>/get/estimates?value=Dew%20Point&amp;stations=LV01</u></p>
-<p>This request will return JSON with estimates of Dew Point for station LV01. To get estimates for many stations adding their code to <em>stations </em>argument separated by <em>comma, </em>like below:</p>
-<p><u>/get/estimates?value=Dew%20Point&amp;stations=LV01,LV02,LV03</u></p>
-<p>If needed to get measurements too, just add <em>measurements </em>argument and set it to true to URL:</p>
-<p><u>/get/estimates?value=Dew%20Point&amp;stations=LV01,LV02,LV03&amp;measurements=true</u></p>
+<p><a href="http://127.0.0.1/use/1d_kalman_filter?station=LV01&amp;value=Dew%20Point">/use/1d_kalman_filter?station=LV01&amp;value=Dew%20Point</a>&amp;<u>datetime_unit_of_measure</u><u>=minute&amp;period_value=11</u></p>
 <p>&nbsp;</p>
-<p>&nbsp;</p>
-<h2><a name="_Toc57222456"></a><a name="_Toc57222873"></a>III.&nbsp;&nbsp;&nbsp;&nbsp; /get/accuracies</h2>
-<p>Third route is for getting accuracy of estimation. Essential argument: <em>value, stations</em></p>
-<p>Secondary argument: None</p>
-<p><em>For example:</em></p>
-<p><u>/get/accuracies?value=Dew%20Point&amp;stations=LV01</u></p>
-<p><u>/get/accuracies?value=Dew%20Point&amp;stations=LV01,LV02,LV03</u></p>
-<p>These requests will return JSON with accuracies for stations and value that are set up in request arguments.</p>
-<p>&nbsp;</p>
-<h2><a name="_Toc57222457"></a><a name="_Toc57222874"></a>IV.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /use/1d_kalman_filter</h2>
-<p>It is used for getting smoothed values using a one-dimensional Kalman Filter.</p>
-<p>Essential argument: <em>value, station.</em></p>
-<p>For <em>value,</em> arguments can be used "Dew Point", "Air Temperature" etc.</p>
-<p><em>For example:</em></p>
-<p><a href="http://127.0.0.1/use/1d_kalman_filter?station=LV01&amp;value=Dew%20Point">/use/1d_kalman_filter?station=LV01&amp;value=Dew%20Point</a></p>
-<p>&nbsp;</p>
-<h2><a name="_Toc57222458"></a><a name="_Toc57222875"></a>V.&nbsp;&nbsp; /use/2d_kalman_filter</h2>
-<p>It is used for getting smoothed values using a two-dimensional Kalman Filter.</p>
-<p>Essential argument: <em>value, station.</em></p>
-<p>For <em>value,</em> arguments can be used "Dew Point", "Air Temperature" etc.</p>
-<p>Secondary argument: <em>position</em>, <em>velocity</em> and <em>time_delta</em></p>
+<h2>II.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /use/2d_kalman_filter</h2>
+<p>Is used for getting smoothed values using two-dimensional Kalman Filter .</p>
+<p>Essential arguments: value, station, datetime_unit_of_measure, period_value.</p>
+<p>For <em>value</em> argumest can be used &ldquo;Dew Point&rdquo;, &ldquo;Air Temperature&rdquo; and etc.</p>
+<p>Secondary argument: position, velocity and time_delta</p>
 <p>As a default values for secondary arguments:</p>
-<p><em>position = 0</em></p>
-<p><em>velocity = 0</em></p>
-<p><em>time_delta = 0.1 </em></p>
+<p>position = 0</p>
+<p>velocity = 0</p>
+<p>time_delta = 0.1</p>
+<p>&nbsp;</p>
+<p>For <em>datetime_unit_of_measure </em>must be used <u>str</u> value, that defines unit of measure of time delta value (&ldquo;second&rdquo;, &ldquo;minute&rdquo;, &ldquo;hour&rdquo;, &ldquo;day&rdquo;, &ldquo;month&rdquo;, &ldquo;year&rdquo;)</p>
+<p>For <em>period_value </em>must be used <u>int</u> value, that defines delta value.</p>
+<p>If <em>period_value </em>is 11 and <em>datetime_unit_of_measure is </em>&ldquo;minute&rdquo;, it means delta value will be 11 minutes.</p>
 <p><em>For example:</em></p>
-<p><a href="http://127.0.0.1/use/1d_kalman_filter?station=LV01&amp;value=Dew%20Point">/use/2d_kalman_filter?station=LV01&amp;value=Dew%20Point</a></p>
+<p><a href="http://127.0.0.1/use/1d_kalman_filter?station=LV01&amp;value=Dew%20Point">/use/2d_kalman_filter?station=LV01&amp;value=Dew%20Point</a>&amp;<u>datetime_unit_of_measure</u><u>=minute&amp;period_value=11</u></p>
 <p>In this case will be used default values for secondary arguments. This request will return JSON with smoothed values for stations and value that are set up in request arguments.</p>
-<p>/use/2d_kalman_filter?station=LV01&amp;value=Dew%20Point&amp;position=1&amp;velocity=9&amp;time_delta=0.2</p>
+<p><u>/use/2d_kalman_filter?station=LV01&amp;value=Dew%20Point&amp;position=1&amp;velocity=9&amp;time_delta=0.2&amp;datetime_unit_of_measure=minute&amp;period_value=11</u></p>
 <p>&nbsp;</p>
-<h2><a name="_Toc57222459"></a><a name="_Toc57222876"></a>VI.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/arima</h2>
-<p>It is used for getting forecast values using station data.</p>
-<p>Essential argument: <em>value, station, steps, </em>and<em> optimize.</em></p>
-<p>For <em>value,</em> arguments can be used "Dew Point", "Air Temperature" etc.</p>
-<p><em>Steps</em> value means how many points ahead will be made in the forecast.</p>
-<p><em>Optimize</em> option is used to determine the best model using only the last 1000 data points. Otherwise, the program uses full data, and it may take much more time and not make sense.</p>
+<h2>III.&nbsp;&nbsp;&nbsp; /get/forecast</h2>
+<p>Is used for getting forecast values using station data.</p>
+<p>Essential arguments: model_name, value, station, steps, datetime_unit_of_measure, period_value.</p>
+<p>Secondary arguments: using_Kalman_Filter.</p>
+<p>For the <em>model_name </em>value can be used ARIMA, ARMA, AR and MA models.</p>
+<p>For <em>value</em> argumest can be used &ldquo;Dew Point&rdquo;, &ldquo;Air Temperature&rdquo; and etc.</p>
+<p><em>Steps</em> value means how many points ahead will be made forecast.</p>
+<p>For <em>datetime_unit_of_measure </em>must be used <u>str</u> value, that defines unit of measure of time delta value (&ldquo;second&rdquo;, &ldquo;minute&rdquo;, &ldquo;hour&rdquo;, &ldquo;day&rdquo;, &ldquo;month&rdquo;, &ldquo;year&rdquo;)</p>
+<p>For <em>period_value </em>must be used <u>int</u> value, that defines delta value.</p>
+<p>If <em>period_value </em>is 11 and <em>datetime_unit_of_measure is </em>&ldquo;minute&rdquo;, it means delta value will be 11 minutes.</p>
+<p>For the value <em>using_Kalman_Filter </em>must be used only True or False values.</p>
 <p><em>For example:</em></p>
-<p><a href="http://127.0.0.1/get/forecast/arima?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true">/get/forecast/arima?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true</a></p>
+<p><a href="http://127.0.0.1/get/forecast/arima?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true">/get/forecast?model_name=ARIMA&amp;value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;</a><u>datetime_unit_of_measure</u><u>=minute&amp;period_value=11</u></p>
+<p><a href="http://127.0.0.1/get/forecast/arima?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true">/get/forecast?model_name=AR&amp;value=Dew%20Point&amp;station=LV06&amp;steps=10&amp;</a><u>datetime_unit_of_measure</u><u>=hour&amp;period_value=1&amp;using_Kalman_Filter=True</u></p>
 <p>&nbsp;</p>
-<h2><a name="_Toc57222460"></a><a name="_Toc57222877"></a>VII.&nbsp; /get/forecast/arima/time_period</h2>
-<p>It is used for getting forecast values using station data and using periods with dates from and till.</p>
-<p>Essential argument: <em>value, station, steps, optimize, date_from, </em>and<em> date_till.</em></p>
+<h2>IV.&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/time_period</h2>
+<p>Is used for getting forecast values using station data and using time period with date from and date till.</p>
+<p>Essential argument: model_name , value, station, steps, datetime_unit_of_measure, period_value.</p>
+<p>Secondary arguments: using_Kalman_Filter.</p>
+<p>For the <em>model_name </em>value can be used ARIMA, ARMA, AR and MA models.</p>
+<p>For <em>datetime_unit_of_measure </em>must be used <u>str</u> value, that defines unit of measure of time delta value (&ldquo;second&rdquo;, &ldquo;minute&rdquo;, &ldquo;hour&rdquo;, &ldquo;day&rdquo;, &ldquo;month&rdquo;, &ldquo;year&rdquo;)</p>
+<p>For <em>period_value </em>must be used <u>int</u> value, that defines delta value.</p>
+<p>If <em>period_value </em>is 11 and <em>datetime_unit_of_measure is </em>&ldquo;minute&rdquo;, it means delta value will be 11 minutes.</p>
+<p>For the value <em>using_Kalman_Filter </em>must be used only True or False values.</p>
 <p>Date value can be inputed in two formats:</p>
 <ul>
 <li>YYYY-MM-DD and time value will be automatically set to 00:00</li>
 <li>YYYY-MM-DD_HH:MM</li>
 </ul>
 <p><em>For example:</em></p>
-<p><a href="http://127.0.0.1/get/forecast/arima/time_period?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true&amp;date_from=2020-02-10_12:00&amp;date_till=2020-04-15_14:00">/get/forecast/arima/time_period?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true&amp;date_from=2020-02-10_12:00&amp;date_till=2020-04-15_14:00</a></p>
-<p><a href="http://127.0.0.1/get/forecast/arima/time_period?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true&amp;date_from=2020-02-10&amp;date_till=2020-04-15">/get/forecast/arima/time_period?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true&amp;date_from=2020-02-10&amp;date_till=2020-04-15</a></p>
-<p><u>&nbsp;</u></p>
-<p><u>&nbsp;</u></p>
-<h2><a name="_Toc57222461"></a><a name="_Toc57222878"></a>VIII.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/ar</h2>
-<p>It is used for getting forecast values using station data.</p>
-<p>Essential argument: <em>value, station, steps, </em>and<em> optimize.</em></p>
-<p>For <em>value,</em> arguments can be used "Dew Point", "Air Temperature" etc.</p>
-<p><em>Steps</em> value means how many points ahead will be made in the forecast.</p>
-<p><em>Optimize</em> option is used to determine the best model using only the last 1000 data points. Otherwise, the program uses full data, and it may take much more time and not make sense.</p>
-<p><em>For example:</em></p>
-<p><a href="http://127.0.0.1/get/forecast/arima?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true">/get/forecast/ar?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true</a></p>
+<p><a href="http://127.0.0.1/get/forecast/arima/time_period?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true&amp;date_from=2020-02-10_12:00&amp;date_till=2020-04-15_14:00">/get/forecast/time_period?model_name=ARMA&amp;value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;date_from=2020-02-10_12:00&amp;date_till=2020-04 15_14:00</a><u>&amp;datetime_unit_of_measure</u><u>=minute&amp;period_value=11</u></p>
+<p><a href="http://127.0.0.1/get/forecast/arima/time_period?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true&amp;date_from=2020-02-10&amp;date_till=2020-04-15">/get/forecast/time_period?model_name=ARIMA&amp;value=Dew%20Point&amp;station=LV05&amp;steps=5&amp;date_from=2020-02-10&amp;date_till=2020-04-15</a><u>&amp;datetime_unit_of_measure</u><u>=minute&amp;period_value=11&amp;using_Kalman_Filter=True</u></p>
 <p>&nbsp;</p>
-<h2><a name="_Toc57222462"></a><a name="_Toc57222879"></a>IX.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/ma</h2>
-<p>It is used for getting forecast values using station data.</p>
-<p>Essential argument: <em>value, station, steps, </em>and<em> optimize.</em></p>
-<p>For <em>value,</em> arguments can be used "Dew Point", "Air Temperature" etc.</p>
-<p><em>Steps</em> value means how many points ahead will be made in the forecast.</p>
-<p><em>Optimize</em> option is used to determine the best model using only the last 1000 data points. Otherwise, the program uses full data, and it may take much more time and not make sense.</p>
+<h2>V.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/all_models</h2>
+<p>Is used for getting forecast values using station data for all models (ARIMA, ARMA, AR, MA) usind one-dimensional .</p>
+<p>Essential argument: value, station, steps datetime_unit_of_measure, period_value.</p>
+<p>Secondary arguments: using_Kalman_Filter.</p>
+<p>For <em>value</em> argumest can be used &ldquo;Dew Point&rdquo;, &ldquo;Air Temperature&rdquo; and etc.</p>
+<p><em>Steps</em> value means how many points ahead will be made forecast.</p>
+<p>For <em>datetime_unit_of_measure </em>must be used <u>str</u> value, that defines unit of measure of time delta value (&ldquo;second&rdquo;, &ldquo;minute&rdquo;, &ldquo;hour&rdquo;, &ldquo;day&rdquo;, &ldquo;month&rdquo;, &ldquo;year&rdquo;)</p>
+<p>For <em>period_value </em>must be used <u>int</u> value, that defines delta value.</p>
+<p>If <em>period_value </em>is 11 and <em>datetime_unit_of_measure is </em>&ldquo;minute&rdquo;, it means delta value will be 11 minutes.</p>
+<p>For the value <em>using_Kalman_Filter </em>must be used only True or False values.</p>
 <p><em>For example:</em></p>
-<p><a href="http://127.0.0.1/get/forecast/arima?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true">/get/forecast/ma?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true</a></p>
+<p><a href="http://127.0.0.1/get/forecast/arima?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true">/get/forecast/all_models?value=Dew%20Point&amp;station=LV01&amp;steps=5</a><u>&amp;datetime_unit_of_measure</u><u>=minute&amp;period_value=11</u></p>
+<p><a href="http://127.0.0.1/get/forecast/arima?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true">/get/forecast/all_models?value=Dew%20Point&amp;station=LV01&amp;steps=5</a><u>&amp;datetime_unit_of_measure</u><u>=minute&amp;period_value=11&amp;using_Kalman_Filter=True</u></p>
 <p>&nbsp;</p>
-<h2><a name="_Toc57222463"></a><a name="_Toc57222880"></a>X.&nbsp;&nbsp; /get/forecast/arma</h2>
-<p>It is used for getting forecast values using station data.</p>
-<p>Essential argument: <em>value, station, steps, </em>and<em> optimize.</em></p>
-<p>For <em>value,</em> arguments can be used "Dew Point", "Air Temperature" etc.</p>
-<p><em>Steps</em> value means how many points ahead will be made in the forecast.</p>
-<p><em>Optimize</em> option is used to determine the best model using only the last 1000 data points. Otherwise, the program uses full data, and it may take much more time and not make sense.</p>
-<p><em>For example:</em></p>
-<p><a href="http://127.0.0.1/get/forecast/arima?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true">/get/forecast/arma?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true</a></p>
 <p>&nbsp;</p>
-<h2><a name="_Toc57222464"></a><a name="_Toc57222881"></a>XI.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /get/forecast/all_models</h2>
-<p>It is used to get forecast values using station data for all models (ARIMA, ARMA, AR, MA).</p>
-<p>Essential argument: <em>value, station, steps, </em>and<em> optimize.</em></p>
-<p>For <em>value,</em> arguments can be used "Dew Point", "Air Temperature" etc.</p>
-<p><em>Steps</em> value means how many points ahead will be made in the forecast.</p>
-<p><em>Optimize</em> option is used to determine the best model using only the last 1000 data points. Otherwise, the program uses full data, and it may take much more time and not make sense.</p>
-<p><em>For example:</em></p>
-<p><a href="http://127.0.0.1/get/forecast/arima?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true">/get/forecast/all_models?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true</a></p>
-<p>&nbsp;</p>
-<h2><a name="_Toc57222465"></a><a name="_Toc57222882"></a>XII.&nbsp; /get/forecast/all_models/with/1d_kalman_filter</h2>
-<p>It is used to get forecast values using station data for all models (ARIMA, ARMA, AR, MA) using one-dimensional.</p>
-<p>Essential argument: <em>value, station, steps, </em>and<em> optimize.</em></p>
-<p>For <em>value,</em> arguments can be used "Dew Point", "Air Temperature" etc.</p>
-<p><em>Steps</em> value means how many points ahead will be made in the forecast.</p>
-<p><em>Optimize</em> option is used to determine the best model using only the last 1000 data points. Otherwise, the program uses full data, and it may take much more time and not make sense.</p>
-<p><em>For example:</em></p>
-<p><a href="http://127.0.0.1/get/forecast/arima?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true">/get/forecast/all_models/with/1d_kalman_filter?value=Dew%20Point&amp;station=LV01&amp;steps=5&amp;optimize=true</a></p>
 <p>&nbsp;</p>
