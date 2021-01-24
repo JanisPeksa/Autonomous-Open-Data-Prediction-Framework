@@ -1,201 +1,122 @@
 from flask import request
 from flask_api import FlaskAPI
-import pandas as pd
-
 from Program.DataHandler import DataHandler
-from Program.KalmanFilter import KalmanFilter
 from Program.KF import KF_1D, KF_2D
 from Program.MySQLClient import MySQLClient
-from Program.Forecasting_model import Forecasting_model
+from Program.ForecastingModel import ForecastingModel
+from Program.Cluster import Cluster
+from Program.DataFiller import DataFiller
+from Program.TimeHandler import TimeHandler
 
 app = FlaskAPI(__name__)
 
 
-@app.route('/get/', methods=['GET'])
-def get_basic():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    for x in request.args.keys():
-        if x == 'value' and request.args['value'] != 'Station':
-            return DataHandler.get_json_of_chosen_values(
-                DataHandler.get_lists_of_chosen_values_with_station_names(sql_client.get_all_info_from_database(),
-                                                                          request.args['value']))
-        elif x == 'list' and request.args['list'] == 'all':
-            return DataHandler.get_json_of_existing_values()
-        elif (x == 'value' and request.args['value'] == 'Station') or \
-                (x == 'list' and request.args['list'] == 'Station'):
-            return DataHandler.get_json_of_station_names()
-        elif x == 'measment':
-            pass
+def data_still_has_none_values(station_code):
+    results_dict = dict()
+    json = dict()
 
-
-@app.route('/get/accuracies', methods=['GET'])
-def get_accuracies():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    value = request.args['value']
-    station_codes = request.args['stations'].split(',')
-
-    records = sql_client.get_info_by_stations(station_codes)
-
-    index = DataHandler.get_index_of_value(value)
-
-    lists_of_measurements = DataHandler.get_exact_value_from_many_my_sql_records(records, index)
-    lists_of_measurements = DataHandler.get_lists_of_floats(lists_of_measurements)
-
-    error_in_estimate = 1.0
-    error_in_measurement = 1.0
-
-    lists_of_measurements = DataHandler.replace_none_with_dash(lists_of_measurements)
-    lists_of_measurements = DataHandler.fill_missing_data_in_lists(lists_of_measurements)
-
-    lists_of_estimates = KalmanFilter.get_lists_of_estimates(lists_of_measurements, error_in_estimate,
-                                                             error_in_measurement)
-
-    accuracies = DataHandler.get_accuracies(lists_of_measurements, lists_of_estimates)
-    json = {}
-
-    for station_code, accuracy in zip(station_codes, accuracies):
-        json[station_code] = 'Accuracy: ' + str(accuracy)
-
+    results_dict["Data overview: "] = "After data filling data still contains None values"
+    json[station_code] = results_dict
     return json
 
 
-@app.route('/get/estimates', methods=['GET'])
-def get_estimates():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    value = request.args['value']
-    station_codes = request.args['stations'].split(',')
+def data_problems(station_code):
+    results_dict = dict()
+    json = dict()
 
-    records = sql_client.get_info_by_stations(station_codes)
-
-    index = DataHandler.get_index_of_value(value)
-
-    lists_of_measurements = DataHandler.get_exact_value_from_many_my_sql_records(records, index)
-    lists_of_measurements = DataHandler.get_lists_of_floats(lists_of_measurements)
-
-    error_in_estimate = 1.0
-    error_in_measurement = 1.0
-
-    lists_of_measurements = DataHandler.replace_none_with_dash(lists_of_measurements)
-    lists_of_measurements = DataHandler.fill_missing_data_in_lists(lists_of_measurements)
-
-    lists_of_estimates = KalmanFilter.get_lists_of_estimates(lists_of_measurements, error_in_estimate,
-                                                             error_in_measurement)
-
-    data_dict = {}
-    json = {}
-
-    for station_code, measurements, estimates in zip(station_codes, lists_of_measurements, lists_of_estimates):
-        try:
-            if request.args['measurements'] == 'true':
-                data_dict['Measurements: '] = measurements
-        except KeyError:
-            pass
-
-        data_dict['Estimates: '] = estimates
-
-        json[station_code] = data_dict
-        data_dict = {}
-
+    results_dict["Data overview: "] = "Data is fully empty or data indexes can not be found"
+    json[station_code] = results_dict
     return json
 
 
-# overload for taking all estimates
-@app.route('/get/estimates/all', methods=['GET'])
-def get_all_estimations():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    value = request.args['value']
-
-    records = sql_client.get_all_info_by_stations()
-    index = DataHandler.get_index_of_value(value)
-
-    lists_of_measurements = DataHandler.get_exact_value_from_many_my_sql_records(records, index)
-    lists_of_measurements = DataHandler.get_lists_of_floats(lists_of_measurements)
-
-    error_in_estimate = 1.0
-    error_in_measurement = 1.0
-
-    lists_of_measurements = DataHandler.replace_none_with_dash(lists_of_measurements)
-    lists_of_measurements = DataHandler.fill_missing_data_in_lists(lists_of_measurements)
-
-    station_codes = DataHandler.get_station_codes()
-
-    station_codes, lists_of_measurements = DataHandler.zip_codes_and_measurements(station_codes, lists_of_measurements)
-
-    lists_of_estimates = KalmanFilter.get_lists_of_estimates(lists_of_measurements, error_in_estimate,
-                                                             error_in_measurement)
-    data_dict = {}
-    json = {}
-
-    for station_code, measurements, estimates in zip(station_codes, lists_of_measurements, lists_of_estimates):
-        try:
-            if request.args['measurements'] == 'true':
-                data_dict['Measurements: '] = measurements
-        except KeyError:
-            pass
-
-        data_dict['Estimates: '] = estimates
-
-        json[station_code] = data_dict
-        data_dict = {}
-
-    return json
-
-
-@app.route('/use/1d_kalman_filter', methods=['GET'])
+@app.route("/use/1d_kalman_filter", methods=["GET"])
 def get_filtered_values_using_1d_kalman_filter():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    value = request.args['value']
-    station_code = request.args['station']
+    sql_client = MySQLClient("xxx.xx.xxx.xx", "outsider", "password", "forecast")
+    value = request.args["value"]
+    station_code = request.args["station"]
+    datetime_unit_of_measure = request.args["datetime_unit_of_measure"]
+    period_value = int(request.args["period_value"])
 
     records = sql_client.get_info_by_station(station_code)
 
-    index = DataHandler.get_index_of_value(value)
+    list_of_measurements = DataHandler.get_filled_list_of_measurements(records, value)
+    list_of_datetime = DataHandler.get_exact_value_from_many_my_sql_records([records], 2)[0]
 
-    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
-    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+    time_handler = TimeHandler(datetime_unit_of_measure, period_value, list_of_datetime=list_of_datetime)
+    series_of_measurements = time_handler.get_datetime_and_measurements_series(list_of_measurements, list_of_datetime)
 
-    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
-    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+    if series_of_measurements.empty:
+        return data_problems(station_code)
 
-    filtered_values = KF_1D(list_of_measurements).get_filtered_values()
+    contains_none_values = False
+    if series_of_measurements.isnull().values.any():
+        contains_none_values = True
+        station_locations_rec = sql_client.get_latitude_and_longitude()
+        station_clusters_df = Cluster(station_locations_rec).get_stations_clusters_df()
+        series_of_measurements = DataFiller(series_of_measurements, station_clusters_df, station_code,
+                                            time_handler, sql_client).fill_the_data_none_values(value)
+
+    if series_of_measurements.isnull().values.any():
+        return data_still_has_none_values(station_code)
+
+    filtered_values_list = KF_1D(series_of_measurements.values).get_filtered_values()
 
     results_dict = dict()
     json = dict()
 
-    results_dict['Filtered values using 1D Kalman Filter: '] = filtered_values
+    if contains_none_values:
+        results_dict["Data overview: "] = "In the selected data were found and filled None values"
+    else:
+        results_dict["Data overview: "] = "Data has no None values"
+
+    results_dict["Filtered values using 1D Kalman Filter: "] = filtered_values_list
 
     json[station_code] = results_dict
 
     return json
 
 
-@app.route('/use/2d_kalman_filter', methods=['GET'])
+@app.route("/use/2d_kalman_filter", methods=["GET"])
 def get_filtered_values_using_2d_kalman_filter():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    value = request.args['value']
-    station_code = request.args['station']
+    sql_client = MySQLClient("xxx.xx.xxx.xx", "outsider", "password", "forecast")
+    value = request.args["value"]
+    station_code = request.args["station"]
+    datetime_unit_of_measure = request.args["datetime_unit_of_measure"]
+    period_value = int(request.args["period_value"])
     try:
-        position = float(request.args['position'])
+        position = float(request.args["position"])
     except KeyError:
         position = 0
     try:
-        velocity = float(request.args['velocity'])
+        velocity = float(request.args["velocity"])
     except KeyError:
         velocity = 0
     try:
-        time_delta = float(request.args['time_delta'])
+        time_delta = float(request.args["time_delta"])
     except KeyError:
         time_delta = 0.1
 
     records = sql_client.get_info_by_station(station_code)
 
-    index = DataHandler.get_index_of_value(value)
+    list_of_measurements = DataHandler.get_filled_list_of_measurements(records, value)
+    list_of_datetime = DataHandler.get_exact_value_from_many_my_sql_records([records], 2)[0]
 
-    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
-    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+    time_handler = TimeHandler(datetime_unit_of_measure, period_value, list_of_datetime=list_of_datetime)
+    series_of_measurements = time_handler.get_datetime_and_measurements_series(list_of_measurements, list_of_datetime)
 
-    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
-    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+    if series_of_measurements.empty:
+        return data_problems(station_code)
+
+    contains_none_values = False
+    if series_of_measurements.isnull().values.any():
+        contains_none_values = True
+        station_locations_rec = sql_client.get_latitude_and_longitude()
+        station_clusters_df = Cluster(station_locations_rec).get_stations_clusters_df()
+        series_of_measurements = DataFiller(series_of_measurements, station_clusters_df, station_code,
+                                            time_handler, sql_client).fill_the_data_none_values(value)
+
+    if series_of_measurements.isnull().values.any():
+        return data_still_has_none_values(station_code)
 
     filtered_values = KF_2D(list_of_measurements, position=position, velocity=velocity,
                             time_delta=time_delta).get_filtered_values()
@@ -203,454 +124,319 @@ def get_filtered_values_using_2d_kalman_filter():
     results_dict = dict()
     json = dict()
 
-    results_dict['Filtered values using 2D Kalman Filter: '] = filtered_values
+    if contains_none_values:
+        results_dict["Data overview: "] = "In the selected data were found and filled None values"
+    else:
+        results_dict["Data overview: "] = "Data has no None values"
+
+    results_dict["Filtered values using 2D Kalman Filter: "] = filtered_values
 
     json[station_code] = results_dict
 
     return json
 
 
-@app.route('/get/forecast/arima', methods=['GET'])
-def get_forecast_arima():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    value = request.args['value']
-    station_code = request.args['station']
-    steps = int(request.args['steps'])
+@app.route("/get/forecast", methods=["GET"])
+def get_forecast():
+    sql_client = MySQLClient("xxx.xx.xxx.xx", "outsider", "password", "forecast")
+    model_name = request.args["model_name"]
+    value = request.args["value"]
+    station_code = request.args["station"]
+    steps = int(request.args["steps"])
+    datetime_unit_of_measure = request.args["datetime_unit_of_measure"]
+    period_value = int(request.args["period_value"])
     try:
-        optimize = request.args['optimize'] in ('true', 'True')
-    except KeyError:
-        optimize = True
+        using_Kalman_Filter = request.args["using_Kalman_Filter"] in ["True", "true"]
+    except:
+        using_Kalman_Filter = False
 
     records = sql_client.get_info_by_station(station_code)
 
-    index = DataHandler.get_index_of_value(value)
+    list_of_measurements = DataHandler.get_filled_list_of_measurements(records, value)
+    list_of_datetime = DataHandler.get_exact_value_from_many_my_sql_records([records], 2)[0]
 
-    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
-    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+    if len(list_of_measurements) > 1000:
+        list_of_measurements = list_of_measurements[-1000:]
+        list_of_datetime = list_of_datetime[-1000:]
+    elif len(list_of_measurements) < 100:
+        raise Exception("list of measurements must contain at least 100 values")
 
-    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
-    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+    time_handler = TimeHandler(datetime_unit_of_measure, period_value, list_of_datetime=list_of_datetime)
+    series_of_measurements = time_handler.get_datetime_and_measurements_series(list_of_measurements, list_of_datetime)
 
-    series_of_measurements = pd.Series(list_of_measurements)
+    if series_of_measurements.empty:
+        return data_problems(station_code)
 
-    arima_data_points, arima_model_order, forecast_arima = Forecasting_model("ARIMA", series_of_measurements, steps,
-                                                                             optimize).get_forecast()
+    contains_none_values = False
+    if series_of_measurements.isnull().values.any():
+        contains_none_values = True
+        station_locations_rec = sql_client.get_latitude_and_longitude()
+        station_clusters_df = Cluster(station_locations_rec).get_stations_clusters_df()
+        series_of_measurements = DataFiller(series_of_measurements, station_clusters_df, station_code,
+                                            time_handler, sql_client).fill_the_data_none_values(value)
+
+    if series_of_measurements.isnull().values.any():
+        return data_still_has_none_values(station_code)
+
+    if using_Kalman_Filter:
+        filtered_values_list = KF_1D(series_of_measurements.values).get_filtered_values()
+        series_of_measurements = time_handler.get_data_series(filtered_values_list, series_of_measurements.index)
+
+    model = ForecastingModel(model_name, series_of_measurements, steps, station_code)
+    forecast = model.get_forecast()
+    data_points = model.data_points_to_use
+    model_order = model.best_model_order
 
     results_dict = dict()
     json = dict()
 
-    if forecast_arima is not None:
-        p, d, q = arima_model_order
-
-        arima_model_order = {'p: ': p,
-                             'd: ': d,
-                             'q: ': q}
-
-        results_dict['Data points: '] = arima_data_points
-        results_dict['ARIMA model order: '] = arima_model_order
-        results_dict['Steps: '] = steps
-        results_dict['Forecast: '] = forecast_arima
+    if contains_none_values:
+        results_dict["Data overview: "] = "In the selected data were found and filled None values"
     else:
-        results_dict['ARIMA results: '] = 'ARIMA model was not created'
+        results_dict["Data overview: "] = "Data has no None values"
+
+    if forecast is not None:
+        p, d, q = model_order
+
+        if model_name == "ARIMA":
+            model_order = {"p: ": p,
+                           "d: ": d,
+                           "q: ": q}
+        elif model_name == "ARMA":
+            model_order = {"p: ": p,
+                           "q: ": q}
+        elif model_name == "AR":
+            model_order = {"p: ": p}
+        elif model_name == "MA":
+            model_order = {"q: ": q}
+
+        results_dict["Data points: "] = data_points
+        results_dict["{} model order: ".format(model_name)] = model_order
+        results_dict["Steps: "] = steps
+        results_dict["Kalman Filter: "] = using_Kalman_Filter
+        forecast_dict = time_handler.get_forecast_dict_with_datetime(forecast, series_of_measurements.index[-1])
+        results_dict["Forecast: "] = forecast_dict
+    else:
+        results_dict["{} results: ".format(model_name)] = "{} model was not created".format(model_name)
 
     json[station_code] = results_dict
 
     return json
 
 
-@app.route('/get/forecast/arima/time_period', methods=['GET'])
-def get_forecast_arima_by_time_period():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    value = request.args['value']
-    station_code = request.args['station']
-    steps = int(request.args['steps'])
+@app.route("/get/forecast/time_period", methods=["GET"])
+def get_forecast_by_time_period():
+    sql_client = MySQLClient("xxx.xx.xxx.xx", "outsider", "password", "forecast")
+    model_name = request.args["model_name"]
+    value = request.args["value"]
+    station_code = request.args["station"]
+    steps = int(request.args["steps"])
+    datetime_unit_of_measure = request.args["datetime_unit_of_measure"]
+    period_value = int(request.args["period_value"])
     try:
-        optimize = request.args['optimize'] in ('true', 'True')
-    except KeyError:
-        optimize = True
+        using_Kalman_Filter = request.args["using_Kalman_Filter"] in ["True", "true"]
+    except:
+        using_Kalman_Filter = False
 
     # YYYY-MM-DD ---> YYYY-MM-DD HH:MM:SS
-    date_from = request.args['date_from'].replace('_', ' ')
-    date_till = request.args['date_till'].replace('_', ' ')
-
-    if len(date_from) == 10:
-        date_from += ' 00:00:00'
-    else:
-        date_from += ':00'
-
-    if len(date_till) == 10:
-        date_till += ' 00:00:00'
-    else:
-        date_till += ':00'
-
-    date_from = DataHandler.get_datetime_format(date_from)
-    date_till = DataHandler.get_datetime_format(date_till)
+    date_from = request.args["date_from"].replace("_", " ")
+    date_till = request.args["date_till"].replace("_", " ")
 
     records = sql_client.get_info_by_station(station_code)
 
-    index = DataHandler.get_index_of_value(value)
+    list_of_measurements = DataHandler.get_filled_list_of_measurements(records, value)
+    list_of_datetime = DataHandler.get_exact_value_from_many_my_sql_records([records], 2)[0]
 
-    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
-    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+    time_handler = TimeHandler(datetime_unit_of_measure, period_value, date_from, date_till)
+    series_of_measurements = time_handler.get_datetime_and_measurements_series(list_of_measurements, list_of_datetime)
 
-    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
-    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+    if series_of_measurements.empty:
+        return data_problems(station_code)
 
-    lists_of_datetime = DataHandler.get_exact_value_from_many_my_sql_records([records], 2)[0]
+    contains_none_values = False
+    if series_of_measurements.isnull().values.any():
+        contains_none_values = True
+        station_locations_rec = sql_client.get_latitude_and_longitude()
+        station_clusters_df = Cluster(station_locations_rec).get_stations_clusters_df()
+        series_of_measurements = DataFiller(series_of_measurements, station_clusters_df, station_code,
+                                            time_handler, sql_client).fill_the_data_none_values(value)
 
-    data_df = DataHandler.get_datetime_and_measurements_dataframe(lists_of_datetime, list_of_measurements,
-                                                                  date_from, date_till)
+    if series_of_measurements.isnull().values.any():
+        return data_still_has_none_values(station_code)
 
-    arima_data_points, arima_model_order, forecast_arima = Forecasting_model("ARIMA", data_df, steps,
-                                                                             optimize).get_forecast()
+    if using_Kalman_Filter:
+        filtered_values_list = KF_1D(series_of_measurements.values).get_filtered_values()
+        series_of_measurements = time_handler.get_data_series(filtered_values_list, series_of_measurements.index)
+
+    model = ForecastingModel(model_name, series_of_measurements, steps, station_code)
+    forecast = model.get_forecast()
+    data_points = model.data_points_to_use
+    model_order = model.best_model_order
 
     results_dict = dict()
     json = dict()
-    if forecast_arima is not None:
-        p, d, q = arima_model_order
 
-        arima_model_order = {'p: ': p,
-                             'd: ': d,
-                             'q: ': q}
-
-        results_dict['Data points: '] = arima_data_points
-        results_dict['Date from: '] = date_from
-        results_dict['Date till: '] = date_till
-        results_dict['ARIMA model order: '] = arima_model_order
-        results_dict['Steps: '] = steps
-        results_dict['Forecast: '] = forecast_arima
+    if contains_none_values:
+        results_dict["Data overview: "] = "In the selected data were found and filled None values"
     else:
-        results_dict['ARIMA results: '] = 'ARIMA model was not created'
+        results_dict["Data overview: "] = "Data has no None values"
+
+    if forecast is not None:
+        p, d, q = model_order
+
+        if model_name == "ARIMA":
+            model_order = {"p: ": p,
+                           "d: ": d,
+                           "q: ": q}
+        elif model_name == "ARMA":
+            model_order = {"p: ": p,
+                           "q: ": q}
+        elif model_name == "AR":
+            model_order = {"p: ": p}
+        elif model_name == "MA":
+            model_order = {"q: ": q}
+
+        results_dict["Date from: "] = date_from
+        results_dict["Date till: "] = date_till
+        results_dict["Data points: "] = data_points
+        results_dict["{} model order: ".format(model_name)] = model_order
+        results_dict["Steps: "] = steps
+        results_dict["Kalman Filter: "] = using_Kalman_Filter
+        forecast_dict = time_handler.get_forecast_dict_with_datetime(forecast, series_of_measurements.index[-1])
+        results_dict["Forecast: "] = forecast_dict
+    else:
+        results_dict["{} results: ".format(model_name)] = "{} model was not created".format(model_name)
 
     json[station_code] = results_dict
 
     return json
 
 
-@app.route('/get/forecast/ar', methods=['GET'])
-def get_forecast_ar():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    value = request.args['value']
-    station_code = request.args['station']
-    steps = int(request.args['steps'])
-    try:
-        optimize = request.args['optimize'] in ('true', 'True')
-    except KeyError:
-        optimize = True
-
-    records = sql_client.get_info_by_station(station_code)
-
-    index = DataHandler.get_index_of_value(value)
-
-    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
-    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
-
-    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
-    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
-
-    series_of_measurements = pd.Series(list_of_measurements)
-
-    ar_data_points, ar_model_order, forecast_ar = Forecasting_model("AR", series_of_measurements, steps,
-                                                                    optimize).get_forecast()
-
-    results_dict = dict()
-    json = dict()
-
-    if forecast_ar is not None:
-        p, d, q = ar_model_order
-
-        ar_model_order = {'p: ': p}
-
-        results_dict['Data points: '] = ar_data_points
-        results_dict['AR model order: '] = ar_model_order
-        results_dict['Steps: '] = steps
-        results_dict['Forecast: '] = forecast_ar
-    else:
-        results_dict['AR results: '] = 'AR model was not created'
-
-    json[station_code] = results_dict
-
-    return json
-
-
-@app.route('/get/forecast/ma', methods=['GET'])
-def get_forecast_ma():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    value = request.args['value']
-    station_code = request.args['station']
-    steps = int(request.args['steps'])
-    try:
-        optimize = request.args['optimize'] in ('true', 'True')
-    except KeyError:
-        optimize = True
-
-    records = sql_client.get_info_by_station(station_code)
-
-    index = DataHandler.get_index_of_value(value)
-
-    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
-    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
-
-    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
-    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
-
-    series_of_measurements = pd.Series(list_of_measurements)
-
-    ma_data_points, ma_model_order, forecast_ma = Forecasting_model("MA", series_of_measurements, steps,
-                                                                    optimize).get_forecast()
-
-    results_dict = dict()
-    json = dict()
-
-    if forecast_ma is not None:
-        p, d, q = ma_model_order
-
-        ma_model_order = {'q: ': q}
-
-        results_dict['Data points: '] = ma_data_points
-        results_dict['MA model order: '] = ma_model_order
-        results_dict['Steps: '] = steps
-        results_dict['Forecast: '] = forecast_ma
-    else:
-        results_dict['MA results: '] = 'MA model was not created'
-
-    json[station_code] = results_dict
-
-    return json
-
-
-@app.route('/get/forecast/arma', methods=['GET'])
-def get_forecast_arma():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    value = request.args['value']
-    station_code = request.args['station']
-    steps = int(request.args['steps'])
-    try:
-        optimize = request.args['optimize'] in ('true', 'True')
-    except KeyError:
-        optimize = True
-
-    records = sql_client.get_info_by_station(station_code)
-
-    index = DataHandler.get_index_of_value(value)
-
-    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
-    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
-
-    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
-    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
-
-    series_of_measurements = pd.Series(list_of_measurements)
-
-    arma_data_points, arma_model_order, forecast_arma = Forecasting_model("ARMA", series_of_measurements, steps,
-                                                                          optimize).get_forecast()
-
-    results_dict = dict()
-    json = dict()
-
-    if forecast_arma is not None:
-        p, d, q = arma_model_order
-
-        arma_model_order = {'p: ': p,
-                            'q: ': q}
-
-        results_dict['Data points: '] = arma_data_points
-        results_dict['ARMA model order: '] = arma_model_order
-        results_dict['Steps: '] = steps
-        results_dict['Forecast: '] = forecast_arma
-    else:
-        results_dict['ARMA results: '] = 'ARMA model was not created'
-
-    json[station_code] = results_dict
-
-    return json
-
-
-@app.route('/get/forecast/all_models', methods=['GET'])
+@app.route("/get/forecast/all_models", methods=["GET"])
 def get_forecast_all_models():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    value = request.args['value']
-    station_code = request.args['station']
-    steps = int(request.args['steps'])
+    sql_client = MySQLClient("xxx.xx.xxx.xx", "outsider", "password", "forecast")
+    value = request.args["value"]
+    station_code = request.args["station"]
+    steps = int(request.args["steps"])
+    datetime_unit_of_measure = request.args["datetime_unit_of_measure"]
+    period_value = int(request.args["period_value"])
     try:
-        optimize = request.args['optimize'] in ('true', 'True')
-    except KeyError:
-        optimize = True
+        using_Kalman_Filter = request.args["using_Kalman_Filter"] in ["True", "true"]
+    except:
+        using_Kalman_Filter = False
 
     records = sql_client.get_info_by_station(station_code)
 
-    index = DataHandler.get_index_of_value(value)
+    list_of_measurements = DataHandler.get_filled_list_of_measurements(records, value)
+    list_of_datetime = DataHandler.get_exact_value_from_many_my_sql_records([records], 2)[0]
 
-    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
-    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+    if len(list_of_measurements) > 1000:
+        list_of_measurements = list_of_measurements[-1000:]
+        list_of_datetime = list_of_datetime[-1000:]
+    elif len(list_of_measurements) < 100:
+        raise Exception("list of measurements must contain at least 100 values")
 
-    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
-    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+    time_handler = TimeHandler(datetime_unit_of_measure, period_value, list_of_datetime=list_of_datetime)
+    series_of_measurements = time_handler.get_datetime_and_measurements_series(list_of_measurements, list_of_datetime)
 
-    series_of_measurements = pd.Series(list_of_measurements)
+    if series_of_measurements.empty:
+        return data_problems(station_code)
 
-    arima_data_points, arima_model_order, forecast_arima = Forecasting_model("ARIMA", series_of_measurements, steps,
-                                                                             optimize).get_forecast()
+    contains_none_values = False
+    if series_of_measurements.isnull().values.any():
+        contains_none_values = True
+        station_locations_rec = sql_client.get_latitude_and_longitude()
+        station_clusters_df = Cluster(station_locations_rec).get_stations_clusters_df()
+        series_of_measurements = DataFiller(series_of_measurements, station_clusters_df, station_code,
+                                            time_handler, sql_client).fill_the_data_none_values(value)
 
-    arma_data_points, arma_model_order, forecast_arma = Forecasting_model("ARMA", series_of_measurements, steps,
-                                                                          optimize).get_forecast()
+    if series_of_measurements.isnull().values.any():
+        return data_still_has_none_values(station_code)
 
-    ar_data_points, ar_model_order, forecast_ar = Forecasting_model("AR", series_of_measurements, steps,
-                                                                    optimize).get_forecast()
+    if using_Kalman_Filter:
+        filtered_values_list = KF_1D(series_of_measurements.values).get_filtered_values()
+        series_of_measurements = time_handler.get_data_series(filtered_values_list, series_of_measurements.index)
 
-    ma_data_points, ma_model_order, forecast_ma = Forecasting_model("MA", series_of_measurements, steps,
-                                                                    optimize).get_forecast()
+    arima_model = ForecastingModel("ARIMA", series_of_measurements, steps, station_code)
+    forecast_arima = arima_model.get_forecast()
+    arima_data_points = arima_model.data_points_to_use
+    arima_model_order = arima_model.best_model_order
+
+    arma_model = ForecastingModel("ARMA", series_of_measurements, steps, station_code)
+    forecast_arma = arma_model.get_forecast()
+    arma_data_points = arma_model.data_points_to_use
+    arma_model_order = arma_model.best_model_order
+
+    ar_model = ForecastingModel("AR", series_of_measurements, steps, station_code)
+    forecast_ar = ar_model.get_forecast()
+    ar_data_points = ar_model.data_points_to_use
+    ar_model_order = ar_model.best_model_order
+
+    ma_model = ForecastingModel("MA", series_of_measurements, steps, station_code)
+    forecast_ma = ma_model.get_forecast()
+    ma_data_points = ma_model.data_points_to_use
+    ma_model_order = ma_model.best_model_order
 
     results_dict = dict()
     json = dict()
 
-    # ARIMA results
-    if forecast_arima is not None:
-        p, d, q = arima_model_order
-        arima_model_order = {'p: ': p,
-                             'd: ': d,
-                             'q: ': q}
-
-        results_dict['Data points for ARIMA: '] = arima_data_points
-        results_dict['ARIMA model order: '] = arima_model_order
-        results_dict['Steps: '] = steps
-        results_dict['ARIMA forecast: '] = forecast_arima
+    if contains_none_values:
+        results_dict["Data overview: "] = "In the selected data were found and filled None values"
     else:
-        results_dict['ARIMA results: '] = 'ARIMA model was not created'
-
-    # ARMA results
-    if forecast_arma is not None:
-        p, d, q = arma_model_order
-        arma_model_order = {'p: ': p,
-                            'q: ': q}
-
-        results_dict['Data points for ARMA: '] = arma_data_points
-        results_dict['ARMA model order: '] = arma_model_order
-        results_dict['Steps: '] = steps
-        results_dict['ARMA forecast: '] = forecast_arma
-    else:
-        results_dict['ARMA results: '] = 'ARMA model was not created'
-
-    # AR results
-    if forecast_ar is not None:
-        p, d, q = ar_model_order
-        ar_model_order = {'p: ': p}
-
-        results_dict['Data points for AR: '] = ar_data_points
-        results_dict['AR model order: '] = ar_model_order
-        results_dict['Steps: '] = steps
-        results_dict['AR forecast: '] = forecast_ar
-    else:
-        results_dict['AR results: '] = 'AR model was not created'
-
-    # MA results
-    if forecast_ma is not None:
-        p, d, q = ma_model_order
-        ma_model_order = {'q: ': q}
-
-        results_dict['Data points for MA: '] = ma_data_points
-        results_dict['MA model order: '] = ma_model_order
-        results_dict['Steps: '] = steps
-        results_dict['MA forecast: '] = forecast_ma
-    else:
-        results_dict['MA results: '] = 'MA model was not created'
-
-    json[station_code] = results_dict
-
-    return json
-
-
-@app.route('/get/forecast/all_models/with/1d_kalman_filter', methods=['GET'])
-def get_forecast_all_models_with_1d_kalman_filter():
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'xxxxx', 'xxxxx', 'xxxxxx')
-    value = request.args['value']
-    station_code = request.args['station']
-    steps = int(request.args['steps'])
-    try:
-        optimize = request.args['optimize'] in ('true', 'True')
-    except KeyError:
-        optimize = True
-
-    records = sql_client.get_info_by_station(station_code)
-
-    index = DataHandler.get_index_of_value(value)
-
-    list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
-    list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
-
-    list_of_measurements = DataHandler.replace_in_list_none_with_dash(list_of_measurements)
-    list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
-
-    filtered_values = KF_1D(list_of_measurements).get_filtered_values()
-
-    series_of_measurements = pd.Series(filtered_values)
-
-    arima_data_points, arima_model_order, forecast_arima = Forecasting_model("ARIMA", series_of_measurements, steps,
-                                                                             optimize).get_forecast()
-
-    arma_data_points, arma_model_order, forecast_arma = Forecasting_model("ARMA", series_of_measurements, steps,
-                                                                          optimize).get_forecast()
-
-    ar_data_points, ar_model_order, forecast_ar = Forecasting_model("AR", series_of_measurements, steps,
-                                                                    optimize).get_forecast()
-
-    ma_data_points, ma_model_order, forecast_ma = Forecasting_model("MA", series_of_measurements, steps,
-                                                                    optimize).get_forecast()
-
-    results_dict = dict()
-    json = dict()
+        results_dict["Data overview: "] = "Data has no None values"
 
     # ARIMA results
     if forecast_arima is not None:
         p, d, q = arima_model_order
-        arima_model_order = {'p: ': p,
-                             'd: ': d,
-                             'q: ': q}
+        arima_model_order = {"p: ": p,
+                             "d: ": d,
+                             "q: ": q}
 
-        results_dict['Data points for ARIMA: '] = arima_data_points
-        results_dict['ARIMA model order: '] = arima_model_order
-        results_dict['Steps: '] = steps
-        results_dict['ARIMA forecast: '] = forecast_arima
+        results_dict["Data points for ARIMA: "] = arima_data_points
+        results_dict["ARIMA model order: "] = arima_model_order
+        results_dict["Steps: "] = steps
+        results_dict["ARIMA forecast: "] = forecast_arima
     else:
-        results_dict['ARIMA results: '] = 'ARIMA model was not created'
+        results_dict["ARIMA results: "] = "ARIMA model was not created"
 
     # ARMA results
     if forecast_arma is not None:
         p, d, q = arma_model_order
-        arma_model_order = {'p: ': p,
-                            'q: ': q}
+        arma_model_order = {"p: ": p,
+                            "q: ": q}
 
-        results_dict['Data points for ARMA: '] = arma_model_order
-        results_dict['ARMA model order: '] = arma_model_order
-        results_dict['Steps: '] = steps
-        results_dict['ARMA forecast: '] = forecast_arma
+        results_dict["Data points for ARMA: "] = arma_data_points
+        results_dict["ARMA model order: "] = arma_model_order
+        results_dict["Steps: "] = steps
+        results_dict["ARMA forecast: "] = forecast_arma
     else:
-        results_dict['ARMA results: '] = 'ARMA model was not created'
+        results_dict["ARMA results: "] = "ARMA model was not created"
 
     # AR results
     if forecast_ar is not None:
         p, d, q = ar_model_order
-        ar_model_order = {'p: ': p}
+        ar_model_order = {"p: ": p}
 
-        results_dict['Data points for AR: '] = ar_model_order
-        results_dict['AR model order: '] = ar_model_order
-        results_dict['Steps: '] = steps
-        results_dict['AR forecast: '] = forecast_ar
+        results_dict["Data points for AR: "] = ar_data_points
+        results_dict["AR model order: "] = ar_model_order
+        results_dict["Steps: "] = steps
+        results_dict["AR forecast: "] = forecast_ar
     else:
-        results_dict['AR results: '] = 'AR model was not created'
+        results_dict["AR results: "] = "AR model was not created"
 
     # MA results
     if forecast_ma is not None:
         p, d, q = ma_model_order
-        ma_model_order = {'q: ': q}
+        ma_model_order = {"q: ": q}
 
-        results_dict['Data points for MA: '] = ma_model_order
-        results_dict['MA model order: '] = ma_model_order
-        results_dict['Steps: '] = steps
-        results_dict['MA forecast: '] = forecast_ma
+        results_dict["Data points for MA: "] = ma_data_points
+        results_dict["MA model order: "] = ma_model_order
+        results_dict["Steps: "] = steps
+        results_dict["MA forecast: "] = forecast_ma
     else:
-        results_dict['MA results: '] = 'MA model was not created'
+        results_dict["MA results: "] = "MA model was not created"
 
+    json["Kalman Filter: "] = using_Kalman_Filter
     json[station_code] = results_dict
 
     return json

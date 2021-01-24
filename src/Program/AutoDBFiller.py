@@ -1,7 +1,7 @@
-from threading import Thread
-from time import sleep
 from os import remove
 from os.path import isfile
+from threading import Thread
+from time import sleep
 
 from Program.MongoDBClient import MongoDBClient
 from Program.Request import Request

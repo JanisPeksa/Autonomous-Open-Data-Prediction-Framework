@@ -1,0 +1,36 @@
+                             ARIMA Model Results                              
+==============================================================================
+Dep. Variable:         D.Measurements   No. Observations:                  999
+Model:                 ARIMA(5, 1, 4)   Log Likelihood                3478.357
+Method:                       css-mle   S.D. of innovations              0.007
+Date:                Tue, 05 Jan 2021   AIC                          -6934.714
+Time:                        00:59:54   BIC                          -6880.739
+Sample:                             1   HQIC                         -6914.199
+                                                                              
+========================================================================================
+                           coef    std err          z      P>|z|      [0.025      0.975]
+----------------------------------------------------------------------------------------
+const                    0.0013      0.001      0.959      0.338      -0.001       0.004
+ar.L1.D.Measurements     2.3504        nan        nan        nan         nan         nan
+ar.L2.D.Measurements    -2.3367        nan        nan        nan         nan         nan
+ar.L3.D.Measurements     2.0839        nan        nan        nan         nan         nan
+ar.L4.D.Measurements    -1.6240        nan        nan        nan         nan         nan
+ar.L5.D.Measurements     0.5252        nan        nan        nan         nan         nan
+ma.L1.D.Measurements    -0.6544        nan        nan        nan         nan         nan
+ma.L2.D.Measurements     0.5319        nan        nan        nan         nan         nan
+ma.L3.D.Measurements    -0.8491        nan        nan        nan         nan         nan
+ma.L4.D.Measurements    -0.0284      0.022     -1.272      0.204      -0.072       0.015
+                                    Roots                                    
+=============================================================================
+                  Real          Imaginary           Modulus         Frequency
+-----------------------------------------------------------------------------
+AR.1           -0.1818           -1.1120j            1.1267           -0.2758
+AR.2           -0.1818           +1.1120j            1.1267            0.2758
+AR.3            1.0262           -0.0000j            1.0262           -0.0000
+AR.4            1.0959           -0.0000j            1.0959           -0.0000
+AR.5            1.3336           -0.0000j            1.3336           -0.0000
+MA.1            1.0000           -0.0000j            1.0000           -0.0000
+MA.2           -0.1803           -1.0586j            1.0738           -0.2769
+MA.3           -0.1803           +1.0586j            1.0738            0.2769
+MA.4          -30.5013           -0.0000j           30.5013           -0.5000
+-----------------------------------------------------------------------------

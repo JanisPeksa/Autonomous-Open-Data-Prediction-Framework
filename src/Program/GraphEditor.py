@@ -1,5 +1,4 @@
 from matplotlib import pyplot as plt
-from matplotlib import pylab as plb
 
 
 class GraphEditor:

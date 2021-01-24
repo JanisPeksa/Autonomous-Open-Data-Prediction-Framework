@@ -1,5 +1,6 @@
-import pymongo
 from os.path import isfile
+
+import pymongo
 
 
 class MongoDBClient:
@@ -163,4 +164,5 @@ class MongoDBClient:
     @staticmethod
     def get_connection(login, password):
         return pymongo.MongoClient(
-            "mongodb+srv://xxxx".format(login, password))
+            "mongodb+srv://{}:{}@".format(login,
+                                                                                                                password))

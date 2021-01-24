@@ -28,7 +28,7 @@ class MySQLClient:
     def get_all_info_by_stations(self):
         all_info_by_stations = []
 
-        for index in range(1, 65):
+        for index in range(1, 55):
             station_code = 'LV{:02d}'.format(index)
             all_info_by_stations.append(self.get_info_by_station(station_code))
 
@@ -37,6 +37,18 @@ class MySQLClient:
     def get_info_by_station(self, station_code: str = 'LV01'):
         command = 'SELECT * FROM data_records WHERE stacijas_kods = %s'
         self.cursor.execute(command, (station_code,))
+        records = self.cursor.fetchall()
+        return records
+
+    def get_info_by_distance(self):
+        command = 'SELECT * FROM distance'
+        self.cursor.execute(command)
+        records = self.cursor.fetchall()
+        return records
+
+    def get_latitude_and_longitude(self):
+        command = 'SELECT * FROM stations'
+        self.cursor.execute(command)
         records = self.cursor.fetchall()
         return records
 

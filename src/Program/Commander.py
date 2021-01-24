@@ -1,6 +1,7 @@
-from Program.AutoDBFiller import AutoDBFiller
-from Program.Asker import Asker
 from os import system
+
+from Program.Asker import Asker
+from Program.AutoDBFiller import AutoDBFiller
 
 
 class Commander:

@@ -1,0 +1,8 @@
+Augmented Dickey-Fuller test for 600 data points
+d = 1
+ADF Statistic: -8.569769 
+p-value: 0.000000
+Critical Values:
+1%: -3.441
+5%: -2.866
+10%: -2.569

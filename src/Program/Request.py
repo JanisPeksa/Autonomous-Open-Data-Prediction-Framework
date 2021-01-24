@@ -29,7 +29,7 @@ class Request:
         return data_list
 
     @staticmethod
-    def get_table(url='http://www.lvceli.lv/cms/'):
+    def get_table(url='http://www.xxx.lv/cms/'):
         with requests.session() as s:
             r = s.post(url, data=login_data, headers=headers)
 
@@ -41,7 +41,7 @@ class Request:
         old_tables = []
 
         with requests.session() as s:
-            r = s.post('http://www.lvceli.lv/cms/', data=login_data, headers=headers)
+            r = s.post('http://www.xxxx.lv/cms/', data=login_data, headers=headers)
 
             for url in modified_urls:
                 r = s.get(url)
@@ -102,7 +102,7 @@ class Request:
         modified_urls = []
 
         for modifier in self.get_url_modifiers():
-            modified_urls.append('http://www.lvceli.lv/cms/index.php?h=' + modifier)
+            modified_urls.append('http://www.xxxx.lv/cms/index.php?h=' + modifier)
 
         return modified_urls
 

@@ -1,8 +1,3 @@
-import datetime
-import pandas as pd
-import numpy as np
-
-
 class DataHandler:
 
     @staticmethod
@@ -251,7 +246,7 @@ class DataHandler:
         adder = 1
 
         while adder < 5 and index < len(list_of_values) - 1 and index + adder < len(list_of_values):
-            if list_of_values[index] == '-' and list_of_values[index + adder] == '-':
+            if list_of_values[index] is None and list_of_values[index + adder] is None:
                 adder += 1
             else:
                 index += adder
@@ -276,10 +271,10 @@ class DataHandler:
         indexes = []
 
         while adder < 5 and index < len(list_of_values) - 1 and index + adder < len(list_of_values):
-            if adder == 1 and list_of_values[index] == '-' and list_of_values[index + 1] != '-':
+            if adder == 1 and list_of_values[index] is None and list_of_values[index + 1] is not None:
                 indexes.append([index, 'one'])
 
-            if list_of_values[index] == '-' and list_of_values[index + adder] == '-':
+            if list_of_values[index] is None and list_of_values[index + adder] is None:
                 adder += 1
             elif adder != 1:
                 indexes.append([index - 1, index + adder, 'normal'])
@@ -401,7 +396,7 @@ class DataHandler:
         month = datetime.now().month
         day = datetime.now().day
 
-        return 'Year: {} Month: {} Day: {}'.format(year, month, day)
+        return "Year: {} Month: {} Day: {}".format(year, month, day)
 
     @staticmethod
     def get_data_dicts(data_lists) -> list:
@@ -433,31 +428,6 @@ class DataHandler:
         return data_dicts
 
     @staticmethod
-    def replace_none_with_dash(lists_of_measurements: list) -> list:
-        i = 0
-
-        for list_of_measurements in lists_of_measurements:
-            for _ in list_of_measurements:
-                if list_of_measurements[i] is None:
-                    list_of_measurements[i] = '-'
-                i += 1
-            i = 0
-
-        return lists_of_measurements
-
-    @staticmethod
-    def replace_in_list_none_with_dash(list_of_measurements: list) -> list:
-        i = 0
-
-        for _ in list_of_measurements:
-            if list_of_measurements[i] is None:
-                list_of_measurements[i] = '-'
-            i += 1
-        i = 0
-
-        return list_of_measurements
-
-    @staticmethod
     def fill_missing_data_in_lists(lists_of_measurements: list) -> list:
         i = 0
         for list_of_measurement in lists_of_measurements:
@@ -475,7 +445,7 @@ class DataHandler:
         station_codes = []
 
         for i in range(1, 65):
-            station_code = 'LV{:02d}'.format(i)
+            station_code = "LV{:02d}".format(i)
             station_codes.append(station_code)
 
         return station_codes
@@ -486,7 +456,7 @@ class DataHandler:
         i = 0
 
         while i < stop:
-            if '-' in lists_of_measurements[i] or not bool(lists_of_measurements[i]):
+            if None in lists_of_measurements[i] or not bool(lists_of_measurements[i]):
                 lists_of_measurements.pop(i)
                 station_codes.pop(i)
                 stop -= 1
@@ -525,53 +495,15 @@ class DataHandler:
         return accuracies
 
     @staticmethod
-    def get_datetime_format(date_time: str):
-        date_time = datetime.datetime.strptime(date_time, format('%Y-%m-%d %H:%M:%S'))
-        return date_time
+    def get_filled_list_of_measurements(records, value):
+        index = DataHandler.get_index_of_value(value)
+
+        list_of_measurements = DataHandler.get_exact_value_from_my_sql_records(records, index)
+        list_of_measurements = DataHandler.get_list_of_floats(list_of_measurements)
+        list_of_measurements = DataHandler.fill_missing_data_in_lists([list_of_measurements])[0]
+
+        return list_of_measurements
 
     @staticmethod
-    def get_datetime_from_dataframe(data_df, date_from_request):
-        while data_df.loc[data_df['Datetime'] == date_from_request].empty:
-            date_from_request += datetime.timedelta(minutes=1)
-
-        return date_from_request
-
-    @staticmethod
-    def get_datetime_and_measurements_dataframe(lists_of_datetime, lists_of_measurements, date_from, date_till):
-        data_df = pd.DataFrame()
-        data_df['Datetime'] = lists_of_datetime
-        data_df['Measurements'] = lists_of_measurements
-
-        date_from = DataHandler.get_datetime_from_dataframe(data_df, date_from)
-        date_till = DataHandler.get_datetime_from_dataframe(data_df, date_till)
-
-        data_df.set_index('Datetime', inplace=True)
-
-        data_df = data_df.loc[date_from:date_till]
-
-        return data_df
-
-    @staticmethod
-    def get_real_data_for_comparing_with_forecast(lists_of_datetime, lists_of_measurements,
-                                                  date_from_for_actual_data, steps):
-        actual_data_df = pd.DataFrame()
-        actual_data_df['Datetime'] = lists_of_datetime
-        actual_data_df['Measurements'] = lists_of_measurements
-
-        date_from_for_real_data = DataHandler.get_datetime_from_dataframe(actual_data_df, date_from_for_actual_data)
-
-        actual_data_df.set_index('Datetime', inplace=True)
-
-        actual_data_df = actual_data_df.loc[date_from_for_real_data:][:steps]
-
-        return actual_data_df
-
-    @staticmethod
-    def duplicate_dataframe_using_real_datafrme(actual_data_df, forecast_list):
-        forecast_df = pd.DataFrame()
-        forecast_df['Datetime'] = actual_data_df.index
-        forecast_df['Measurements'] = forecast_list
-
-        forecast_df.set_index('Datetime', inplace=True)
-
-        return forecast_df
+    def get_list_of_series_values(data_series_values: list) -> list:
+        return [value[0] for value in data_series_values]

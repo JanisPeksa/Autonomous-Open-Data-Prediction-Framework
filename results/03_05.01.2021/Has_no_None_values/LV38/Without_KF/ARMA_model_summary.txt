@@ -1,0 +1,34 @@
+                              ARMA Model Results                              
+==============================================================================
+Dep. Variable:           Measurements   No. Observations:                 1000
+Model:                     ARMA(5, 3)   Log Likelihood                 190.477
+Method:                       css-mle   S.D. of innovations              0.199
+Date:                Tue, 05 Jan 2021   AIC                           -360.954
+Time:                        06:15:17   BIC                           -311.876
+Sample:                             0   HQIC                          -342.301
+                                                                              
+======================================================================================
+                         coef    std err          z      P>|z|      [0.025      0.975]
+--------------------------------------------------------------------------------------
+const                  0.8384      0.487      1.721      0.085      -0.117       1.793
+ar.L1.Measurements    -0.0986        nan        nan        nan         nan         nan
+ar.L2.Measurements     1.7776        nan        nan        nan         nan         nan
+ar.L3.Measurements     0.0603        nan        nan        nan         nan         nan
+ar.L4.Measurements    -0.8052        nan        nan        nan         nan         nan
+ar.L5.Measurements     0.0510        nan        nan        nan         nan         nan
+ma.L1.Measurements     1.2911        nan        nan        nan         nan         nan
+ma.L2.Measurements    -0.3927        nan        nan        nan         nan         nan
+ma.L3.Measurements    -0.6988        nan        nan        nan         nan         nan
+                                    Roots                                    
+=============================================================================
+                  Real          Imaginary           Modulus         Frequency
+-----------------------------------------------------------------------------
+AR.1           -1.0050           -0.1033j            1.0103           -0.4837
+AR.2           -1.0050           +0.1033j            1.0103            0.4837
+AR.3            1.0243           -0.0000j            1.0243           -0.0000
+AR.4            1.2045           -0.0000j            1.2045           -0.0000
+AR.5           15.5841           -0.0000j           15.5841           -0.0000
+MA.1            1.4299           -0.0000j            1.4299           -0.0000
+MA.2           -0.9959           -0.0941j            1.0004           -0.4850
+MA.3           -0.9959           +0.0941j            1.0004            0.4850
+-----------------------------------------------------------------------------
