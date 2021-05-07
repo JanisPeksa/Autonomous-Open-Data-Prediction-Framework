@@ -20,7 +20,7 @@ def get_forecast_accuracy_with_real_data(forecast_list, actual_list):
 current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 print(f"Test is started {current_time}\n")
 
-sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'login', 'password', 'dbname')
+sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'login', 'pwd', 'dbname')
 station_locations_rec = sql_client.get_latitude_and_longitude()
 value = "Dew Point"
 

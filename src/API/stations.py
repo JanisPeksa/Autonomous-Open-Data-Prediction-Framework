@@ -30,7 +30,7 @@ locations = {"Rucava": (56.162, 21.1732),
 
 
 def rename_station_files():
-    path = "C:\\Users\\Modni\\Desktop\\py\\Forecasting_web_app_for_testing\\API\\Stations"
+    path = "C:\\...\\API\\Stations"
     files = [f for f in listdir(path) if isfile(join(path, f))]
     print(files)
 
