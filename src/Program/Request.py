@@ -29,7 +29,7 @@ class Request:
         return data_list
 
     @staticmethod
-    def get_table(url='http://www.xxx.lv/cms/'):
+    def get_table(url='http://www.xxxx.lv/cms/'):
         with requests.session() as s:
             r = s.post(url, data=login_data, headers=headers)
 

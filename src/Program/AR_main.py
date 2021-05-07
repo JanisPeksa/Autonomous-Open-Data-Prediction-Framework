@@ -2,10 +2,8 @@ import pandas as pd
 import numpy as np
 from statsmodels.tsa.arima_model import ARIMA
 
-from Program.ARIMA_order import ARIMA_order
 
-
-class ARIMA_main:
+class AR_main:
 
     def __init__(self, data_series, steps: int, optimize: bool):
         self.data_series = data_series
@@ -13,16 +11,53 @@ class ARIMA_main:
         self.optimize = optimize
 
     @staticmethod
-    def make_arima_forecast(arima_model_order, data_series, steps):
-        arima_model = ARIMA(data_series, order=arima_model_order).fit(disp=False)
+    def get_ar_order(data_series):
 
-        forecast_list = arima_model.forecast(steps=steps)[0].tolist()
+        d = 0
+        q = 0
+        p_values = range(0, 10)
+
+        aic_dict = dict()
+
+        for p in p_values:
+            order = (p, d, q)
+
+            try:
+                ar_model = ARIMA(data_series, order).fit(disp=0)
+                aic = ar_model.aic
+
+                if [p, d, q] == [0, 0, 0]:
+                    continue
+
+                if aic not in aic_dict:
+                    aic_dict[aic] = order
+
+            except:
+                # print('ARIMA%s aic not defined' % (order,))
+                continue
+
+        # if aic_dict is empty
+        # it is impossible to create arima model for this data set
+        if len(aic_dict) == 0:
+            return None
+
+        min_val = min(aic_dict.keys())
+
+        p = aic_dict[min_val][0]
+
+        return [p, d, q]
+
+    @staticmethod
+    def make_ar_forecast(ar_model, data_series, steps):
+        ar_model = ARIMA(data_series, order=ar_model).fit(disp=False)
+
+        forecast_list = ar_model.forecast(steps=steps)[0].tolist()
 
         return forecast_list
 
     @staticmethod
-    def get_forecast_accuracy_with_real_data(forecast_list, actual_list):
-        rmse = np.mean((forecast_list - actual_list) ** 2) ** .5
+    def get_forecast_accuracy_with_real_data(forecast, actual):
+        rmse = np.mean((forecast - actual) ** 2) ** .5
         return rmse
 
     @staticmethod
@@ -36,7 +71,7 @@ class ARIMA_main:
             for row in rows:
                 return [row, col]
 
-    def get_all_possible_arima_models_with_data_points(self):
+    def get_all_possible_ar_models_with_data_points(self):
         if self.optimize:
             if len(self.data_series) <= 1000 + self.steps:
                 optimize_point = len(self.data_series)
@@ -45,7 +80,7 @@ class ARIMA_main:
         else:
             optimize_point = len(self.data_series)
 
-        arima_models_order_and_data_points_dict = dict()
+        ar_models_order_and_data_points_dict = dict()
         last_point = len(self.data_series) - 1 - self.steps
         process = 0
         data_point_range = range(200, optimize_point, 50)
@@ -55,17 +90,17 @@ class ARIMA_main:
             if first_point < 0:
                 break
             data_series_copy = self.data_series[first_point:last_point].copy()
-            order = ARIMA_order(data_series_copy).get_arima_best_order()
+            order = self.get_ar_order(data_series_copy)
             if order is None:
                 continue
             else:
-                arima_models_order_and_data_points_dict[data_points] = order
+                ar_models_order_and_data_points_dict[data_points] = order
 
-        return arima_models_order_and_data_points_dict
+        return ar_models_order_and_data_points_dict
 
-    def get_arima_forecast(self):
+    def get_ar_forecast(self):
 
-        arima_models_order_and_data_points_dict = self.get_all_possible_arima_models_with_data_points()
+        ar_models_order_and_data_points_dict = self.get_all_possible_ar_models_with_data_points()
 
         # dataframe of data points, steps and RMSE
         rmse_df = pd.DataFrame()
@@ -73,14 +108,15 @@ class ARIMA_main:
         rmse_dict = dict()
         last_point = len(self.data_series) - 1 - self.steps
 
-        for data_points, order in arima_models_order_and_data_points_dict.items():
+        for data_points, order in ar_models_order_and_data_points_dict.items():
+
             first_point = last_point - data_points
             data_series_copy = self.data_series[first_point:last_point].copy()
 
             # ----- Make copy of real data for comparing with forecast ----- #
             data_copy_with_steps = self.data_series[last_point - 1:last_point - 1 + self.steps].copy()
 
-            forecast_list = self.make_arima_forecast(order, data_series_copy, self.steps)
+            forecast_list = self.make_ar_forecast(order, data_series_copy, self.steps)
 
             rmse = self.get_forecast_accuracy_with_real_data(forecast_list, data_copy_with_steps.values)
             rmse_dict[data_points] = rmse
@@ -89,11 +125,11 @@ class ARIMA_main:
         rmse_df[str(self.steps)] = rmse_series
 
         rmse_df.reset_index(inplace=True)
-        rmse_df['order'] = arima_models_order_and_data_points_dict.values()
+        rmse_df['order'] = ar_models_order_and_data_points_dict.values()
         rmse_df.rename(columns={'index': 'points'}, inplace=True)
         rmse_df.set_index(['points', 'order'], inplace=True)
 
-        print("ARIMA model")
+        print("AR model")
         pd.set_option('display.max_rows', None)
         print(rmse_df)
 
@@ -105,11 +141,11 @@ class ARIMA_main:
 
         data_series_copy = self.data_series[- data_points_for_forecast:].copy()
 
-        arima_model_order = ARIMA_order(data_series_copy).get_arima_best_order()
+        ar_model_order = self.get_ar_order(data_series_copy)
 
-        if arima_model_order is None:
+        if ar_model_order is None:
             return [None, None, None, None]
 
-        forecast = self.make_arima_forecast(arima_model_order, data_series_copy, steps)
+        forecast = self.make_ar_forecast(ar_model_order, data_series_copy, steps)
 
-        return [data_points_for_forecast, arima_model_order, steps, forecast]
+        return [data_points_for_forecast, ar_model_order, steps, forecast]

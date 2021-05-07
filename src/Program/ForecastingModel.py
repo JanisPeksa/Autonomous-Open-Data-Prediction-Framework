@@ -2,6 +2,7 @@ from statsmodels.tsa.arima_model import ARIMA
 from statsmodels.tsa.stattools import adfuller
 from sklearn.metrics import mean_squared_error
 from math import sqrt
+from Program.ForecastingModelResults import ForecastingModelResults
 
 import warnings
 
@@ -10,17 +11,25 @@ warnings.filterwarnings('ignore')
 
 class ForecastingModel:
 
-    def __init__(self, model_name, data_series, steps: int, station_code: str,
-                 max_p_value=6, max_q_value=6):
+    def __init__(self, model_name, data_df, steps: int, optimize: bool, station_code: str,
+                 path_to_save_results=None, max_p_value=6, max_q_value=6):
 
         self.model_name = model_name
-        self.data_series = data_series
+        self.data_df = data_df
         self.steps = steps
+        self.optimize = optimize
 
-        if len(self.data_series) <= 100:
-            raise Exception("Data must contains more than 100 measurements")
+        if len(self.data_df) <= 200:
+            raise Exception("Data must contains more than 200 measurements")
 
         self.station_code = station_code
+
+        self.path_to_save_results = path_to_save_results
+        if path_to_save_results is not None:
+            self.save_results = True
+            self.forecasting_model_results = ForecastingModelResults(path_to_save_results)
+        else:
+            self.save_results = False
 
         self.min_aic_value = None
         self.data_points_to_use = None
@@ -43,11 +52,17 @@ class ForecastingModel:
             self.d_values = range(0, 1)
             self.p_values = range(0, 1)
             self.q_values = range(0, max_q_value)
+        elif model_name == "SARIMA":
+            self.D_values = range(0, 3)
+            self.P_values = range(0, 4)
+            self.Q_values = range(0, 4)
+            self.d_values = range(0, 3)
+            self.p_values = range(0, 4)
+            self.q_values = range(0, 4)
         else:
             raise Exception("The model name {} is incorrect".format(model_name))
 
-    @staticmethod
-    def get_d_value_and_ADF_test(data_series):
+    def get_d_value_and_ADF_test(self, data_df):
 
         # ----- Augmented Dickey-Fuller test ----- #
         # ----- p-value > 0.05: the data has a unit root and is non-stationary ----- #
@@ -56,31 +71,42 @@ class ForecastingModel:
 
         d = 0
         try:
-            adf_test_results = adfuller(data_series.values)
+            adf_test_results = adfuller(data_df.values)
+
+            if self.save_results:
+                self.forecasting_model_results.save_adf_test_results(d, adf_test_results, len(data_df))
+                self.forecasting_model_results.save_plot_pacf_and_plot_acf(data_df, d, len(data_df))
+
         except:
             return d
 
-        data_series_diff = data_series
+        data_df_diff = data_df
         while adf_test_results[1] > 0.05 or d == 0:
             if d > 2:
                 return 0
             # ----- make data stationary and drop NA values ----- #
-            data_series_diff = data_series_diff.diff().dropna()
+            data_df_diff = data_df_diff.diff().dropna()
             d += 1
+            self.forecasting_model_results.save_data_difference_plot(data_df_diff, d)
             try:
-                data_series_diff_values = data_series_diff.values
-                adf_test_results = adfuller(data_series_diff_values)
+                data_df_diff_values = data_df_diff.values
+                adf_test_results = adfuller(data_df_diff_values)
+
+                if self.save_results:
+                    self.forecasting_model_results.save_adf_test_results(d, adf_test_results, len(data_df))
+                    self.forecasting_model_results.save_plot_pacf_and_plot_acf(data_df_diff_values, d, len(data_df))
+
             except:
                 d -= 1
                 return d
 
         return d
 
-    def get_order_and_min_aic_value(self, data_series):
+    def get_order_and_min_aic_value(self, data_df):
         aic_dict = dict()
 
         if len(self.d_values) != 1:
-            d = self.get_d_value_and_ADF_test(data_series)
+            d = self.get_d_value_and_ADF_test(data_df)
         else:
             d = 0
 
@@ -92,10 +118,10 @@ class ForecastingModel:
                     continue
 
                 try:
-                    arima_model = ARIMA(data_series, order).fit(disp=False)
+                    arima_model = ARIMA(data_df, order).fit(disp=False)
                     aic = arima_model.aic
                     aic_dict[order] = aic
-                    # print("Data Points: {}, Order: {}, AIC: {}".format(len(data_series), order, aic))
+                    # print("Data Points: {}, Order: {}, AIC: {}".format(len(data_df), order, aic))
                 except:
                     continue
 
@@ -114,10 +140,11 @@ class ForecastingModel:
                     # {order: aic_value }
                     return result_dict
 
-    def make_forecast(self, data_series):
+    def make_forecast(self, data_df):
 
-        model = ARIMA(data_series, order=self.best_model_order).fit(disp=False)
+        model = ARIMA(data_df, order=self.best_model_order).fit(disp=False)
         forecast_list = model.forecast(steps=self.steps)[0].tolist()
+        self.forecasting_model_results.save_forecasting_model_summary(str(model.summary()), self.model_name)
 
         return forecast_list
 
@@ -126,24 +153,28 @@ class ForecastingModel:
         return sqrt(mean_squared_error(actual, forecast))
 
     def get_possible_models_for_all_data_points_dict(self) -> dict:
-        if len(self.data_series) <= 1000:
-            data_optimize_points = len(self.data_series)
-            point_range = int(data_optimize_points / 10)
+        if self.optimize:
+            if len(self.data_df) <= 1000:
+                data_optimize_points = len(self.data_df)
+                point_range = int(data_optimize_points / 10)
+            else:
+                data_optimize_points = 1010
+                point_range = 100
         else:
-            data_optimize_points = 1010
-            point_range = 100
+            data_optimize_points = len(self.data_df)
+            point_range = int(data_optimize_points / 20)
 
         models_order_and_data_points_dict = dict()
-        last_point = len(self.data_series)
+        last_point = len(self.data_df)
 
-        data_point_range = range(100, data_optimize_points, point_range)
+        data_point_range = range(200, data_optimize_points, point_range)
         for data_points in data_point_range:
             first_point = last_point - data_points
             if first_point < 0:
                 break
-            data_series_copy = self.data_series[first_point:last_point].copy()
+            data_df_copy = self.data_df[first_point:last_point].copy()
 
-            order_and_min_aic_value = self.get_order_and_min_aic_value(data_series_copy)
+            order_and_min_aic_value = self.get_order_and_min_aic_value(data_df_copy)
             if order_and_min_aic_value is None:
                 continue
             else:
@@ -156,6 +187,8 @@ class ForecastingModel:
             for order, aic in aic_dict.items():
                 if self.min_aic_value is None:
                     self.min_aic_value = aic
+                    self.data_points_to_use = data_points
+                    self.best_model_order = order
                 elif aic < self.min_aic_value:
                     self.min_aic_value = aic
                     self.data_points_to_use = data_points
@@ -171,8 +204,8 @@ class ForecastingModel:
         if self.data_points_to_use is None:
             return None
 
-        data_series_copy = self.data_series[-self.data_points_to_use:].copy()
+        data_df_copy = self.data_df[-self.data_points_to_use:].copy()
 
-        forecast = self.make_forecast(data_series_copy)
+        forecast = self.make_forecast(data_df_copy)
 
         return forecast

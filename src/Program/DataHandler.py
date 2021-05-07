@@ -1,3 +1,6 @@
+import pandas as pd
+
+
 class DataHandler:
 
     @staticmethod
@@ -495,6 +498,13 @@ class DataHandler:
         return accuracies
 
     @staticmethod
+    def duplicate_dataframe_using_real_datafrme(actual_data_df, forecast_list):
+        forecast_df = pd.DataFrame({"Datetime": actual_data_df.index, "Measurements": forecast_list})
+        forecast_df.set_index("Datetime", inplace=True)
+
+        return forecast_df
+
+    @staticmethod
     def get_filled_list_of_measurements(records, value):
         index = DataHandler.get_index_of_value(value)
 
@@ -505,5 +515,5 @@ class DataHandler:
         return list_of_measurements
 
     @staticmethod
-    def get_list_of_series_values(data_series_values: list) -> list:
-        return [value[0] for value in data_series_values]
+    def get_list_of_dataframe_values(data_df_values: list) -> list:
+        return [value[0] for value in data_df_values]

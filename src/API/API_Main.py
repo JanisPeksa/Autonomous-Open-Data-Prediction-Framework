@@ -31,7 +31,7 @@ def data_problems(station_code):
 
 @app.route("/use/1d_kalman_filter", methods=["GET"])
 def get_filtered_values_using_1d_kalman_filter():
-    sql_client = MySQLClient("xxx.xx.xxx.xx", "outsider", "password", "forecast")
+    sql_client = MySQLClient("xxx.xxx.xxx.xxx", "login", "password", "dbname")
     value = request.args["value"]
     station_code = request.args["station"]
     datetime_unit_of_measure = request.args["datetime_unit_of_measure"]
@@ -78,7 +78,7 @@ def get_filtered_values_using_1d_kalman_filter():
 
 @app.route("/use/2d_kalman_filter", methods=["GET"])
 def get_filtered_values_using_2d_kalman_filter():
-    sql_client = MySQLClient("xxx.xx.xxx.xx", "outsider", "password", "forecast")
+    sql_client = MySQLClient("xxx.xxx.xxx.xxx", "login", "password", "dbname")
     value = request.args["value"]
     station_code = request.args["station"]
     datetime_unit_of_measure = request.args["datetime_unit_of_measure"]
@@ -138,7 +138,7 @@ def get_filtered_values_using_2d_kalman_filter():
 
 @app.route("/get/forecast", methods=["GET"])
 def get_forecast():
-    sql_client = MySQLClient("xxx.xx.xxx.xx", "outsider", "password", "forecast")
+    sql_client = MySQLClient("xxx.xxx.xxx.xxx", "login", "password", "dbname")
     model_name = request.args["model_name"]
     value = request.args["value"]
     station_code = request.args["station"]
@@ -226,7 +226,7 @@ def get_forecast():
 
 @app.route("/get/forecast/time_period", methods=["GET"])
 def get_forecast_by_time_period():
-    sql_client = MySQLClient("xxx.xx.xxx.xx", "outsider", "password", "forecast")
+    sql_client = MySQLClient("xxx.xxx.xxx.xxx", "login", "password", "dbname")
     model_name = request.args["model_name"]
     value = request.args["value"]
     station_code = request.args["station"]
@@ -314,7 +314,7 @@ def get_forecast_by_time_period():
 
 @app.route("/get/forecast/all_models", methods=["GET"])
 def get_forecast_all_models():
-    sql_client = MySQLClient("xxx.xx.xxx.xx", "outsider", "password", "forecast")
+    sql_client = MySQLClient("xxx.xxx.xxx.xxx", "login", "password", "dbname")
     value = request.args["value"]
     station_code = request.args["station"]
     steps = int(request.args["steps"])

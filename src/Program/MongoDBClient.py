@@ -164,5 +164,5 @@ class MongoDBClient:
     @staticmethod
     def get_connection(login, password):
         return pymongo.MongoClient(
-            "mongodb+srv://{}:{}@".format(login,
+            "mongodb+srv://{}:{}@xxx.net/test?retryWrites=true&w=majority".format(login,
                                                                                                                 password))

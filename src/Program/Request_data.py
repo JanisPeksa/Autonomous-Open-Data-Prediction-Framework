@@ -1,6 +1,6 @@
 login_data = {
-    "login": "xxxx",
-    "password": "xxxx"
+    "login": "xxx",
+    "password": "xxx"
 }
 
 headers = {
@@ -8,4 +8,4 @@ headers = {
                   'Chrome/78.0.3904.108 Safari/537.36 '
 }
 
-url = "http://www.xxx.lv/cms/"
+url = "http://www.xxxxx.lv/cms/"

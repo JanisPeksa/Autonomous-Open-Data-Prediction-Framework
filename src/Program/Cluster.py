@@ -8,13 +8,13 @@ import math
 
 class Cluster:
 
-    def __init__(self, records, max_k_value=10, default_k_value=None, path_to_save_results=None):
+    def __init__(self, records, max_k_value=10, default_k_value=None, path_to_save=None):
         self.k_range = range(1, max_k_value)
         self.records_df = self.get_records_df(records)
         self.lat_and_lng_array = self.get_lat_and_lng_array()
 
-        self.path_to_save_results = path_to_save_results
-        if path_to_save_results is not None:
+        self.path_to_save = path_to_save
+        if path_to_save is not None:
             self.save_results = True
         else:
             self.save_results = False
@@ -81,7 +81,7 @@ class Cluster:
 
     def save_results_and_graphs(self):
         cluster_results = ClusterResults(self.records_df, self.k_range, self.optimal_k_value,
-                                         path_to_save_results=self.path_to_save_results)
+                                         path_to_save_results=self.path_to_save)
 
         if self.default_k_value is None:
             cluster_results.get_dist_points_from_cluster_center_plot(self.dist_points_from_cluster_center)
