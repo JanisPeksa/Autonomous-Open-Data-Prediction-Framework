@@ -1,4 +1,3 @@
-import pandas as pd
 from statsmodels.tsa.arima_model import ARIMA
 from statsmodels.tsa.stattools import adfuller
 from sklearn.metrics import mean_squared_error
@@ -9,14 +8,24 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
-class Forecasting_model:
+class Forecasting_Model:
 
-    def __init__(self, model_name, data_series, steps: int, optimize: bool,
-                 max_p_value=6, max_q_value=6):
+    def __init__(self, model_name, data_df, steps: int, station_code: str, max_p_value=6, max_q_value=6,
+                 optimize: bool = True):
+
         self.model_name = model_name
-        self.data_series = data_series
+        self.data_df = data_df
         self.steps = steps
         self.optimize = optimize
+
+        if len(self.data_df) <= 100:
+            raise Exception("Data must contains more than 200 measurements")
+
+        self.station_code = station_code
+
+        self.min_aic_value = None
+        self.data_points_to_use = None
+        self.best_model_order = None
 
         # range (0, 3) == [ 0, 1, 2 ]
         if model_name == "ARIMA":
@@ -35,10 +44,17 @@ class Forecasting_model:
             self.d_values = range(0, 1)
             self.p_values = range(0, 1)
             self.q_values = range(0, max_q_value)
+        elif model_name == "SARIMA":
+            self.D_values = range(0, 3)
+            self.P_values = range(0, 4)
+            self.Q_values = range(0, 4)
+            self.d_values = range(0, 3)
+            self.p_values = range(0, 4)
+            self.q_values = range(0, 4)
         else:
-            self.model_name = "Not defined"
+            raise Exception("The model name {} is incorrect".format(model_name))
 
-    def get_d_value_and_ADF_test(self):
+    def get_d_value_and_ADF_test(self, data_df):
 
         # ----- Augmented Dickey-Fuller test ----- #
         # ----- p-value > 0.05: the data has a unit root and is non-stationary ----- #
@@ -47,49 +63,47 @@ class Forecasting_model:
 
         d = 0
         try:
-            adf_test_results = adfuller(self.data_series.values)
+            adf_test_results = adfuller(data_df.values)
         except:
             return d
 
-        data_series_diff = self.data_series
+        data_df_diff = data_df
         while adf_test_results[1] > 0.05 or d == 0:
             if d > 2:
                 return 0
-            d += 1
             # ----- make data stationary and drop NA values ----- #
-            data_series_diff = data_series_diff.diff().dropna()
+            data_df_diff = data_df_diff.diff().dropna()
+            d += 1
 
             try:
-                data_series_diff_values = data_series_diff.values
-                adf_test_results = adfuller(data_series_diff_values)
+                data_df_diff_values = data_df_diff.values
+                adf_test_results = adfuller(data_df_diff_values)
             except:
                 d -= 1
                 return d
 
         return d
 
-    def get_order_ARIMA(self, data_series):
+    def get_order_and_min_aic_value(self, data_df):
         aic_dict = dict()
 
         if len(self.d_values) != 1:
-            d = self.get_d_value_and_ADF_test()
+            d = self.get_d_value_and_ADF_test(data_df)
         else:
             d = 0
 
         for p in self.p_values:
             for q in self.q_values:
-                order = [p, d, q]
+                order = (p, d, q)
+
+                if order == (0, 0, 0):
+                    continue
 
                 try:
-                    arma_model = ARIMA(data_series, order).fit(disp=False)
-                    aic = arma_model.aic
-
-                    if [p, d, q] == [0, 0, 0]:
-                        continue
-
-                    if aic not in aic_dict:
-                        aic_dict[aic] = order
-                        # print("Order: {}, AIC: {}".format(order, aic))
+                    arima_model = ARIMA(data_df, order).fit(disp=False)
+                    aic = arima_model.aic
+                    aic_dict[order] = aic
+                    # print("Data Points: {}, Order: {}, AIC: {}".format(len(data_df), order, aic))
                 except:
                     continue
 
@@ -97,15 +111,21 @@ class Forecasting_model:
         # it is impossible to create arima model for this data set
         if len(aic_dict) == 0:
             return None
+        else:
 
-        min_val = min(aic_dict.keys())
+            min_aic_val = min(aic_dict.values())
 
-        return aic_dict[min_val]
+            for key, value in aic_dict.items():
+                if value == min_aic_val:
+                    result_dict = {key: value}
+                    # order = (p, d, q)
+                    # {order: aic_value }
+                    return result_dict
 
-    @staticmethod
-    def make_forecast_ARIMA(order, data_series, steps):
-        model = ARIMA(data_series, order=order).fit(disp=False)
-        forecast_list = model.forecast(steps=steps)[0].tolist()
+    def make_forecast(self, data_df):
+
+        model = ARIMA(data_df, order=self.best_model_order).fit(disp=False)
+        forecast_list = model.forecast(steps=self.steps)[0].tolist()
 
         return forecast_list
 
@@ -113,98 +133,60 @@ class Forecasting_model:
     def get_forecast_accuracy_with_real_data(forecast, actual):
         return sqrt(mean_squared_error(actual, forecast))
 
-    @staticmethod
-    def get_steps_and_points_of_min_rmse(rmse_dataframe):
-        min_rmse = rmse_dataframe.min().min()
-        results = rmse_dataframe.isin([min_rmse])
-        series_obj = results.any()
-        column_names = list(series_obj[series_obj == True].index)
-        for col in column_names:
-            rows = list(results[col][results[col] == True].index)
-            for row in rows:
-                return [row, col]
-
-    def get_all_possible_models_with_data_points(self):
+    def get_possible_models_for_all_data_points_dict(self) -> dict:
         if self.optimize:
-            if len(self.data_series) <= 1000 + self.steps:
-                data_optimize_points = len(self.data_series)
-                point_range = int(data_optimize_points / 20)
+            if len(self.data_df) <= 1000:
+                data_optimize_points = len(self.data_df)
+                point_range = int(data_optimize_points / 10)
             else:
                 data_optimize_points = 1010
-                point_range = 50
+                point_range = 100
         else:
-            data_optimize_points = len(self.data_series)
+            data_optimize_points = len(self.data_df)
             point_range = int(data_optimize_points / 20)
 
         models_order_and_data_points_dict = dict()
-        last_point = len(self.data_series) - self.steps - 1
+        last_point = len(self.data_df)
 
         data_point_range = range(200, data_optimize_points, point_range)
         for data_points in data_point_range:
             first_point = last_point - data_points
             if first_point < 0:
                 break
-            data_series_copy = self.data_series[first_point:last_point].copy()
+            data_df_copy = self.data_df[first_point:last_point].copy()
 
-            order = self.get_order_ARIMA(data_series_copy)
-            if order is None:
+            order_and_min_aic_value = self.get_order_and_min_aic_value(data_df_copy)
+            if order_and_min_aic_value is None:
                 continue
             else:
-                models_order_and_data_points_dict[data_points] = order
+                models_order_and_data_points_dict[data_points] = order_and_min_aic_value
 
         return models_order_and_data_points_dict
 
+    def get_lowest_aic_value_and_data_points_from_dict(self, models_for_all_data_points_dict: dict):
+        for data_points, aic_dict in models_for_all_data_points_dict.items():
+            for order, aic in aic_dict.items():
+                if self.min_aic_value is None:
+                    self.min_aic_value = aic
+                    self.data_points_to_use = data_points
+                    self.best_model_order = order
+                elif aic < self.min_aic_value:
+                    self.min_aic_value = aic
+                    self.data_points_to_use = data_points
+                    self.best_model_order = order
+                else:
+                    continue
+
     def get_forecast(self):
+        models_for_all_data_points_dict = self.get_possible_models_for_all_data_points_dict()
 
-        if self.model_name == "Not defined":
-            return [None, None, None]
+        self.get_lowest_aic_value_and_data_points_from_dict(models_for_all_data_points_dict)
 
-        models_order_and_data_points_dict = self.get_all_possible_models_with_data_points()
+        if self.data_points_to_use is None:
+            return None
 
-        if not bool(models_order_and_data_points_dict):
-            return [None, None, None]
+        data_df_copy = self.data_df[-self.data_points_to_use:].copy()
 
-        # dataframe of data points, steps and RMSE
-        rmse_df = pd.DataFrame()
+        forecast = self.make_forecast(data_df_copy)
 
-        rmse_dict = dict()
-        last_point = len(self.data_series) - 1 - self.steps
-
-        for data_points, order in models_order_and_data_points_dict.items():
-            first_point = last_point - data_points
-            data_series_copy = self.data_series[first_point:last_point].copy()
-
-            # ----- Make copy of real data for comparing with forecast ----- #
-            data_copy_with_steps = self.data_series[last_point - 1:last_point - 1 + self.steps].copy()
-
-            forecast_list = self.make_forecast_ARIMA(order, data_series_copy, self.steps)
-
-            rmse = self.get_forecast_accuracy_with_real_data(forecast_list, data_copy_with_steps.values)
-            rmse_dict[data_points] = rmse
-
-        rmse_series = pd.Series(rmse_dict)
-        rmse_df[str(self.steps)] = rmse_series
-
-        rmse_df.reset_index(inplace=True)
-        rmse_df['order'] = models_order_and_data_points_dict.values()
-        rmse_df.rename(columns={'index': 'points'}, inplace=True)
-        rmse_df.set_index(['points', 'order'], inplace=True)
-
-        print(self.model_name)
-        pd.set_option('display.max_rows', None)
-        print(rmse_df)
-
-        results = self.get_steps_and_points_of_min_rmse(rmse_df)
-
-        data_points_for_forecast = results[0][0]
-
-        data_series_copy = self.data_series[- data_points_for_forecast:].copy()
-
-        model_order = self.get_order_ARIMA(data_series_copy)
-
-        if model_order is None:
-            return [None, None, None]
-
-        forecast = self.make_forecast_ARIMA(model_order, data_series_copy, self.steps)
-
-        return [data_points_for_forecast, model_order, forecast]
+        return forecast

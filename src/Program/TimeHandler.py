@@ -5,9 +5,11 @@ import dateutil.relativedelta
 
 class TimeHandler:
 
-    def __init__(self, date_from: str, date_till: str, datetime_unit_of_measure: str, period_value: int):
-        self.date_from = self.get_datetime_format(date_from)
-        self.date_till = self.get_datetime_format(date_till)
+    def __init__(self, datetime_unit_of_measure: str, period_value: int, date_from: str = None, date_till: str = None):
+
+        if date_from is not None and date_till is not None:
+            self.date_from = self.get_datetime_format(date_from)
+            self.date_till = self.get_datetime_format(date_till)
 
         # datetime delta number
         self.period_value = period_value
@@ -144,3 +146,10 @@ class TimeHandler:
         actual_data_df = actual_data_df.loc[date_from_for_real_data:][:steps]
 
         return actual_data_df
+
+    def get_forecast_dict_with_datetime(self, forecast_list, last_datetime):
+        forecast_dict = dict()
+        for value in forecast_list:
+            last_datetime += self.datetime_delta_value
+            forecast_dict[str(last_datetime)] = round(value, 4)
+        return forecast_dict

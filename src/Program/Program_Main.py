@@ -8,7 +8,7 @@ from Program.KalmanFilter import KalmanFilter
 from Program.MySQLClient import MySQLClient
 
 if __name__ == '__main__':
-    sql_client = MySQLClient('xxx.xxx.xxx.xxx', 'login', 'password', 'dbname')
+    sql_client = MySQLClient("xxx.xxx.xxx.xxx", "login", "pwd", "dbname")
 
     value = 'Dew Point °C'
     period = '19 Jan - 19 Feb 2020'

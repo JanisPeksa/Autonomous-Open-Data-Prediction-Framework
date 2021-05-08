@@ -8,4 +8,4 @@ headers = {
                   'Chrome/78.0.3904.108 Safari/537.36 '
 }
 
-url = "http://www.xxxxx.lv/cms/"
+url = "http://www.xxx.lv/cms/"
