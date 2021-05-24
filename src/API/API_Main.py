@@ -209,13 +209,13 @@ def get_forecast():
     list_of_measurements = DataHandler.get_filled_list_of_measurements(records, value)
     list_of_datetime = DataHandler.get_exact_value_from_many_my_sql_records([records], 2)[0]
 
-    if optimize:
-        if len(list_of_measurements) > 1000:
-            list_of_measurements = list_of_measurements[-1000:]
-            list_of_datetime = list_of_datetime[-1000:]
-
-    if len(list_of_measurements) < 100:
-        return data_is_too_small(station_code)
+    # if optimize:
+    #     if len(list_of_measurements) > 1000:
+    #         list_of_measurements = list_of_measurements[-1000:]
+    #         list_of_datetime = list_of_datetime[-1000:]
+    #
+    # if len(list_of_measurements) < 100:
+    #     return data_is_too_small(station_code)
 
     time_handler = TimeHandler(datetime_unit_of_measure, period_value, date_from=date_from, date_till=date_till)
     data_df = time_handler.get_datetime_and_measurements_dataframe(list_of_datetime, list_of_measurements)
@@ -223,6 +223,11 @@ def get_forecast():
 
     if data_df.empty:
         return data_problems(station_code)
+
+    if optimize and len(data_df) > 1100:
+        data_df = data_df.iloc[-1100:]
+
+    print(data_df)
 
     contains_none_values = False
     if data_df.isnull().values.any():
@@ -232,6 +237,8 @@ def get_forecast():
 
         data_df = DataFiller(data_df, station_clusters_df, station_code, time_handler,
                              sql_client, station_locations_rec, use_second_data_type).fill_data_none_values(value)
+
+    print(data_df)
 
     if data_df.isnull().values.any():
         return data_still_has_none_values(station_code)
@@ -319,18 +326,18 @@ def get_forecast_by_time_period():
         date_from = None
         date_till = None
 
+    # if optimize:
+    #     if len(list_of_measurements) > 1000:
+    #         list_of_measurements = list_of_measurements[-1000:]
+    #         list_of_datetime = list_of_datetime[-1000:]
+    #
+    # if len(list_of_measurements) < 100:
+    #     return data_is_too_small(station_code)
+
     records = sql_client.get_info_by_station(station_code)
 
     list_of_measurements = DataHandler.get_filled_list_of_measurements(records, value)
     list_of_datetime = DataHandler.get_exact_value_from_many_my_sql_records([records], 2)[0]
-
-    if optimize:
-        if len(list_of_measurements) > 1000:
-            list_of_measurements = list_of_measurements[-1000:]
-            list_of_datetime = list_of_datetime[-1000:]
-
-    if len(list_of_measurements) < 100:
-        return data_is_too_small(station_code)
 
     time_handler = TimeHandler(datetime_unit_of_measure, period_value, date_from=date_from, date_till=date_till)
     data_df = time_handler.get_datetime_and_measurements_dataframe(list_of_datetime, list_of_measurements)
@@ -338,6 +345,9 @@ def get_forecast_by_time_period():
 
     if data_df.empty:
         return data_problems(station_code)
+
+    if optimize and len(data_df) > 1100:
+        data_df = data_df.iloc[-1100:]
 
     contains_none_values = False
     if data_df.isnull().values.any():
@@ -439,13 +449,13 @@ def get_forecast_all_models():
     list_of_measurements = DataHandler.get_filled_list_of_measurements(records, value)
     list_of_datetime = DataHandler.get_exact_value_from_many_my_sql_records([records], 2)[0]
 
-    if optimize:
-        if len(list_of_measurements) > 1000:
-            list_of_measurements = list_of_measurements[-1000:]
-            list_of_datetime = list_of_datetime[-1000:]
-
-    if len(list_of_measurements) < 100:
-        return data_is_too_small(station_code)
+    # if optimize:
+    #     if len(list_of_measurements) > 1000:
+    #         list_of_measurements = list_of_measurements[-1000:]
+    #         list_of_datetime = list_of_datetime[-1000:]
+    #
+    # if len(list_of_measurements) < 100:
+    #     return data_is_too_small(station_code)
 
     time_handler = TimeHandler(datetime_unit_of_measure, period_value, date_from=date_from, date_till=date_till)
     data_df = time_handler.get_datetime_and_measurements_dataframe(list_of_datetime, list_of_measurements)
@@ -453,6 +463,9 @@ def get_forecast_all_models():
 
     if data_df.empty:
         return data_problems(station_code)
+
+    if optimize and len(data_df) > 1100:
+        data_df = data_df.iloc[-1100:]
 
     contains_none_values = False
     if data_df.isnull().values.any():

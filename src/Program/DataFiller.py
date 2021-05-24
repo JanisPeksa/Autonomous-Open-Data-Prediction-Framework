@@ -48,7 +48,6 @@ class DataFiller:
         df_s = []
         act_df_s = []
         for station_code in stations_codes_to_use_list:
-            print(len(df_s))
             records = self.sql_client.get_info_by_station(station_code)
             if not records:
                 continue
@@ -70,14 +69,12 @@ class DataFiller:
                     act_df_s.append(act_df)
 
         for datetime, measurement in self.data_df[self.data_df["Measurements"].isnull()].iterrows():
-            print(datetime)
             temp_measurement = 0
             i_temp = 0
 
             for df in df_s:
                 temp_datetime = self.time_handler. \
                     get_datetime_from_dataframe_with_delta_limitation(df, datetime, self.time_handler.period_value)
-
                 if temp_datetime != -1:
                     temp_value = df.loc[temp_datetime]["Measurements"]
                     if type(temp_value) == pandas.Series:
@@ -88,6 +85,7 @@ class DataFiller:
 
             if i_temp != 0:
                 temp_measurement = temp_measurement / i_temp
+                self.data_df.loc[datetime]["Measurements"] = temp_measurement
                 if self.use_second_data_type:
                     self.lvgmc_station.get_lvgmc_station_data()
                     second_data_type_value = self.lvgmc_station.get_second_data_type_value(datetime)
@@ -121,6 +119,7 @@ class DataFiller:
 
                 if i_temp != 0:
                     temp_measurement = temp_measurement / i_temp
+                    self.data_df.loc[datetime]["Measurements"] = temp_measurement
                     if self.use_second_data_type:
                         self.lvgmc_station.get_lvgmc_station_data()
                         second_data_type_value = self.lvgmc_station.get_second_data_type_value(datetime)

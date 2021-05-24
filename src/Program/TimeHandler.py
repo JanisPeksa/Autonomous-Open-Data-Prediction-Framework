@@ -10,6 +10,9 @@ class TimeHandler:
         if date_from is not None and date_till is not None:
             self.date_from = self.get_datetime_format(date_from)
             self.date_till = self.get_datetime_format(date_till)
+        else:
+            self.date_from = None
+            self.date_till = None
 
         # datetime delta number
         self.period_value = period_value
@@ -58,13 +61,14 @@ class TimeHandler:
         data_df = pd.DataFrame({"Datetime": lists_of_datetime, "Measurements": lists_of_measurements})
         data_df.set_index("Datetime", inplace=True)
 
-        date_from = self.get_datetime_from_dataframe(data_df, self.date_from)
-        date_till = self.get_datetime_from_dataframe(data_df, self.date_till)
+        if self.date_from is not None and self.date_till is not None:
+            date_from = self.get_datetime_from_dataframe(data_df, self.date_from)
+            date_till = self.get_datetime_from_dataframe(data_df, self.date_till)
 
-        if date_from == -1 or date_till == -1:
-            return pd.DataFrame()
+            if date_from == -1 or date_till == -1:
+                return pd.DataFrame()
 
-        data_df = data_df.loc[date_from:date_till]
+            data_df = data_df.loc[date_from:date_till]
 
         data_df = data_df.astype({"Measurements": float})
 
